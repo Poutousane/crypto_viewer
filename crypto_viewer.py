@@ -210,12 +210,12 @@ if load_button:
             metric_cols = st.columns(4)
 
             # Prix actuel formaté correctement
-            metric_cols[0].markdown("""
+            metric_cols[0].markdown(f"""
             <div class="metric-container">
                 <div class="metric-label">Prix actuel</div>
-                <div class="metric-value">$%s</div>
+                <div class="metric-value">${last_price:,.2f}</div>
             </div>
-            """ % f"{last_price:,.2f}", unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
             # Variation avec couleur selon positif/négatif
             change_color = "positive" if percent_change >= 0 else "negative"
