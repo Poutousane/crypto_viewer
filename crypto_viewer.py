@@ -204,7 +204,7 @@ if load_button:
             metric_cols = st.columns(4)
 
             # Prix actuel formaté correctement
-            formatted_price = f"${last_price:,.2f}"  # Formatage préalable
+            formatted_price = f"${last_price:,.2f}"  # OK - $ est en dehors des accolades
             metric_cols[0].markdown("""
             <div class="metric-container">
                 <div class="metric-label">Prix actuel</div>
