@@ -75,9 +75,10 @@ if load_button:
         data = get_crypto_data(ticker_symbol, start_date, end_date)
 
         if data is not None and not data.empty:
-            st.header(f"{selected_crypto} ({ticker_symbol}) - Données du {start_date} au {end_date}")
+            # Correction de la ligne avec l'erreur de formatage
+            st.header(f"{selected_crypto} ({ticker_symbol}) - Données")
 
-            # Affichage des stats rapides
+            # Affichage des stats rapides - correction
             metric_col1, metric_col2, metric_col3 = st.columns(3)
 
             # Calculer les valeurs de début et de fin pour la période
@@ -85,10 +86,21 @@ if load_button:
             last_price = data['Prix de clôture'].iloc[-1]
             percent_change = ((last_price - first_price) / first_price) * 100
 
-            # Correction du formatage des métriques
-            metric_col1.metric("Prix actuel", f"${last_price:.2f}")
-            metric_col2.metric("Variation de prix", f"{percent_change:.2f}%")
-            metric_col3.metric("Volume moyen", f"{data['Volume'].mean():.0f}")
+            # Correction des métriques pour éviter les erreurs de formatage
+            metric_col1.metric(
+                label="Prix actuel",
+                value="$" + str(round(last_price, 2))
+            )
+
+            metric_col2.metric(
+                label="Variation de prix",
+                value=str(round(percent_change, 2)) + "%"
+            )
+
+            metric_col3.metric(
+                label="Volume moyen",
+                value=str(round(data['Volume'].mean(), 0))
+            )
 
             # Affichage d'un graphique interactif avec plotly
             st.subheader("Graphique d'évolution du prix")
@@ -122,7 +134,7 @@ if load_button:
             st.subheader("Tableau de données")
             # Réinitialiser l'index pour afficher la date comme une colonne
             display_data = data.reset_index()
-            display_data = display_data.rename(columns={'Date': 'Date'})
+            display_data = display_data.rename(columns={'index': 'Date'})
             st.dataframe(display_data, use_container_width=True)
 
             # Option pour télécharger les données
