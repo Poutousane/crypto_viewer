@@ -41,11 +41,11 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Extraction explicite des valeurs scalaires avec .item()
-        latest_close_value = float(data['Close'].iloc[-1])  # Conversion explicite en float
-        first_close_value = float(data['Close'].iloc[0])  # Conversion explicite en float
+        # Extraction explicite des valeurs scalaires
+        latest_close_value = float(data['Close'].iloc[-1])
+        first_close_value = float(data['Close'].iloc[0])
         variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
-        latest_volume_value = float(data['Volume'].iloc[-1])  # Conversion explicite en float
+        latest_volume_value = float(data['Volume'].iloc[-1])
 
         # Affichage des indicateurs clés
         st.subheader("Indicateurs clés")
@@ -53,18 +53,15 @@ try:
         metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
         with metrics_col1:
-            # Formatage dans une chaîne de caractères séparée
             formatted_close = f"${latest_close_value:.2f}"
             st.metric("Prix de clôture", formatted_close)
 
         with metrics_col2:
-            # Formatage dans une chaîne de caractères séparée
             formatted_variation = f"{variation_value:.2f}%"
             formatted_delta = f"{variation_value:.2f}%"
             st.metric("Variation", formatted_variation, delta=formatted_delta)
 
         with metrics_col3:
-            # Formatage du volume dans une chaîne séparée
             if latest_volume_value >= 1e9:
                 vol_str = f"{latest_volume_value / 1e9:.2f} G"
             elif latest_volume_value >= 1e6:
@@ -81,40 +78,54 @@ try:
         # Calculer la variation quotidienne
         data['Daily_Change'] = data['Close'].pct_change() * 100
 
-        # Créer un DataFrame pour l'affichage
+        # ======== MÉTHODE CORRIGÉE POUR FORMATER LE DATAFRAME ========
+        # Convertir le DataFrame en dictionnaire, puis formater chaque élément individuellement
+        # Cette approche évite les erreurs de pandas Series.format
+
+        # Créer un nouveau DataFrame vide avec les mêmes index
         display_data = pd.DataFrame(index=data.index)
 
+        # Convertir chaque colonne en une liste de chaînes formatées
+        open_formatted = []
+        high_formatted = []
+        low_formatted = []
+        close_formatted = []
+        change_formatted = []
+        volume_formatted = []
 
-        # Fonction pour formater les prix
-        def format_price(price):
-            return f"${price:.2f}"
+        # Parcourir les lignes pour un formatage personnalisé
+        for idx in data.index:
+            # Formater les prix
+            open_formatted.append(f"${data.loc[idx, 'Open']:.2f}")
+            high_formatted.append(f"${data.loc[idx, 'High']:.2f}")
+            low_formatted.append(f"${data.loc[idx, 'Low']:.2f}")
+            close_formatted.append(f"${data.loc[idx, 'Close']:.2f}")
 
-
-        # Fonction pour formater la variation
-        def format_change(change):
+            # Formater la variation avec gestion des NaN
+            change = data.loc[idx, 'Daily_Change']
             if pd.isna(change):
-                return "N/A"
-            return f"{change:.2f}%"
+                change_formatted.append("N/A")
+            else:
+                change_formatted.append(f"{change:.2f}%")
 
-
-        # Fonction pour formater le volume
-        def format_volume(volume):
+            # Formater le volume
+            volume = data.loc[idx, 'Volume']
             if volume >= 1e9:
-                return f"{volume / 1e9:.2f} G"
+                volume_formatted.append(f"{volume / 1e9:.2f} G")
             elif volume >= 1e6:
-                return f"{volume / 1e6:.2f} M"
+                volume_formatted.append(f"{volume / 1e6:.2f} M")
             elif volume >= 1e3:
-                return f"{volume / 1e3:.2f} k"
-            return f"{volume:.2f}"
+                volume_formatted.append(f"{volume / 1e3:.2f} k")
+            else:
+                volume_formatted.append(f"{volume:.2f}")
 
-
-        # Appliquer les formatages colonne par colonne
-        display_data['Open'] = data['Open'].apply(format_price)
-        display_data['High'] = data['High'].apply(format_price)
-        display_data['Low'] = data['Low'].apply(format_price)
-        display_data['Close'] = data['Close'].apply(format_price)
-        display_data['Variation (%)'] = data['Daily_Change'].apply(format_change)
-        display_data['Volume'] = data['Volume'].apply(format_volume)
+        # Ajouter les listes formatées comme nouvelles colonnes
+        display_data['Open'] = open_formatted
+        display_data['High'] = high_formatted
+        display_data['Low'] = low_formatted
+        display_data['Close'] = close_formatted
+        display_data['Variation (%)'] = change_formatted
+        display_data['Volume'] = volume_formatted
 
         # Affichage du tableau avec filtres
         st.dataframe(display_data)
@@ -132,4 +143,4 @@ except Exception as e:
     st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
     import traceback
 
-    st.error(f"Traceback détaillé: {traceback.format_exc()}")  # Afficher la trace complète pour un meilleur débogage
+    st.error(f"Traceback détaillé: {traceback.format_exc()}")
