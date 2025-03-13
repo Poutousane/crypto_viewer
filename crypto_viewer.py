@@ -41,7 +41,7 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Extraction explicite des valeurs scalaires
+        # Extraction explicite des valeurs scalaires individuelles
         latest_close_value = float(data['Close'].iloc[-1])
         first_close_value = float(data['Close'].iloc[0])
         variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
@@ -78,30 +78,34 @@ try:
         # Calculer la variation quotidienne
         data['Daily_Change'] = data['Close'].pct_change() * 100
 
-        # Préparer le format des valeurs pour l'affichage
-        # Convertir le DataFrame en valeurs natives Python
-
-        # Créer un nouveau DataFrame vide avec les mêmes index
+        # Créer un nouveau DataFrame pour les données formatées
         display_data = pd.DataFrame(index=data.index)
 
-        # Convertir les colonnes numériques en chaînes formatées
-        display_data['Open'] = [f"${x:.2f}" for x in data['Open'].values]
-        display_data['High'] = [f"${x:.2f}" for x in data['High'].values]
-        display_data['Low'] = [f"${x:.2f}" for x in data['Low'].values]
-        display_data['Close'] = [f"${x:.2f}" for x in data['Close'].values]
+        # Convertir les valeurs numpy en valeurs Python natives
+        open_values = [float(x) for x in data['Open'].to_numpy()]
+        high_values = [float(x) for x in data['High'].to_numpy()]
+        low_values = [float(x) for x in data['Low'].to_numpy()]
+        close_values = [float(x) for x in data['Close'].to_numpy()]
+
+        # Formater les prix
+        display_data['Open'] = [f"${x:.2f}" for x in open_values]
+        display_data['High'] = [f"${x:.2f}" for x in high_values]
+        display_data['Low'] = [f"${x:.2f}" for x in low_values]
+        display_data['Close'] = [f"${x:.2f}" for x in close_values]
 
         # Formater la variation avec gestion des NaN
         daily_changes = []
-        for x in data['Daily_Change'].values:
+        for x in data['Daily_Change'].to_numpy():
             if pd.isna(x):
                 daily_changes.append("N/A")
             else:
-                daily_changes.append(f"{x:.2f}%")
+                daily_changes.append(f"{float(x):.2f}%")
         display_data['Variation (%)'] = daily_changes
 
         # Formater le volume
         volumes = []
-        for vol in data['Volume'].values:
+        for vol in data['Volume'].to_numpy():
+            vol = float(vol)
             if vol >= 1e9:
                 volumes.append(f"{vol / 1e9:.2f} G")
             elif vol >= 1e6:
