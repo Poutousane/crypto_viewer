@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 
@@ -24,6 +23,10 @@ cryptos = {
 # Fonction pour formater les grands nombres
 def format_large_number(num):
     try:
+        # Si c'est une series pandas, extraire la valeur correctement
+        if hasattr(num, 'iloc'):
+            num = num.iloc[0]
+
         num = float(num)
         if np.isnan(num):
             return "N/A"
@@ -61,27 +64,6 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Graphique de l'évolution du prix
-        st.subheader(f"Évolution du prix de {selected_crypto}")
-
-        fig = go.Figure()
-        fig.add_trace(go.Candlestick(
-            x=data.index,
-            open=data['Open'],
-            high=data['High'],
-            low=data['Low'],
-            close=data['Close'],
-            name='Prix'
-        ))
-
-        fig.update_layout(
-            xaxis_title='Date',
-            yaxis_title='Prix (USD)',
-            height=500
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
         # Calcul des indicateurs clés
         latest_close = data['Close'].iloc[-1]
         first_close = data['Close'].iloc[0]
@@ -94,7 +76,7 @@ try:
         metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
         with metrics_col1:
-            st.metric("Prix de clôture", f"${format_large_number(latest_close)}")
+            st.metric("Prix de clôture", f"${latest_close:.2f}")
 
         with metrics_col2:
             st.metric("Variation", f"{variation:.2f}%", delta=f"{variation:.2f}%")
@@ -110,15 +92,30 @@ try:
 
         # Formatage des colonnes pour l'affichage
         df_display = data.copy()
-        for col in ['Open', 'High', 'Low', 'Close']:
-            df_display[col] = df_display[col].apply(lambda x: f"${x:.2f}")
 
-        df_display['Volume'] = df_display['Volume'].apply(format_large_number)
-        df_display['Variation (%)'] = df_display['Variation (%)'].apply(
-            lambda x: f"{x:.2f}%" if not np.isnan(x) else "N/A")
+        # Création d'un tableau formaté pour l'affichage
+        df_display_formatted = pd.DataFrame()
+        df_display_formatted.index = df_display.index
+
+        # Formatage spécifique pour chaque colonne
+        df_display_formatted['Open'] = df_display['Open'].apply(lambda x: f"${x:.2f}")
+        df_display_formatted['High'] = df_display['High'].apply(lambda x: f"${x:.2f}")
+        df_display_formatted['Low'] = df_display['Low'].apply(lambda x: f"${x:.2f}")
+        df_display_formatted['Close'] = df_display['Close'].apply(lambda x: f"${x:.2f}")
+
+        # Formatage du volume
+        volumes = []
+        for vol in df_display['Volume']:
+            volumes.append(format_large_number(vol))
+        df_display_formatted['Volume'] = volumes
+
+        # Formatage de la variation
+        df_display_formatted['Variation (%)'] = df_display['Variation (%)'].apply(
+            lambda x: f"{x:.2f}%" if not pd.isna(x) else "N/A"
+        )
 
         # Affichage du tableau avec filtres
-        st.dataframe(df_display)
+        st.dataframe(df_display_formatted)
 
         # Option de téléchargement
         csv = data.to_csv()
