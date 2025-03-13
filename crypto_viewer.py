@@ -20,26 +20,18 @@ cryptos = {
 }
 
 
-# Fonction pour formater les grands nombres
+# Fonction pour formater les grands nombres (version simplifiée)
 def format_large_number(num):
-    try:
-        # Si c'est une series pandas, extraire la valeur correctement
-        if hasattr(num, 'iloc'):
-            num = num.iloc[0]
-
-        num = float(num)
-        if np.isnan(num):
-            return "N/A"
-        if num >= 1e9:
-            return f"{num / 1e9:.2f} G"
-        elif num >= 1e6:
-            return f"{num / 1e6:.2f} M"
-        elif num >= 1e3:
-            return f"{num / 1e3:.2f} k"
-        else:
-            return f"{num:.2f}"
-    except:
+    if pd.isna(num):
         return "N/A"
+    if num >= 1e9:
+        return f"{num / 1e9:.2f} G"
+    elif num >= 1e6:
+        return f"{num / 1e6:.2f} M"
+    elif num >= 1e3:
+        return f"{num / 1e3:.2f} k"
+    else:
+        return f"{num:.2f}"
 
 
 # Interface utilisateur pour sélection de crypto et dates
@@ -64,11 +56,11 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Calcul des indicateurs clés
-        latest_close = data['Close'].iloc[-1]
-        first_close = data['Close'].iloc[0]
+        # Calcul des indicateurs clés (extraire des scalaires, pas des Series)
+        latest_close = float(data['Close'].iloc[-1])
+        first_close = float(data['Close'].iloc[0])
         variation = ((latest_close - first_close) / first_close) * 100
-        latest_volume = data['Volume'].iloc[-1]
+        latest_volume = float(data['Volume'].iloc[-1])
 
         # Affichage des indicateurs clés
         st.subheader("Indicateurs clés")
@@ -87,37 +79,29 @@ try:
         # Tableau des données
         st.subheader("Données historiques")
 
-        # Ajout d'une colonne de variation journalière
-        data['Variation (%)'] = data['Close'].pct_change() * 100
+        # Préparation des données pour l'affichage (créer un nouveau DataFrame)
+        df_display = pd.DataFrame()
 
-        # Formatage des colonnes pour l'affichage
-        df_display = data.copy()
+        # Copier l'index
+        df_display.index = data.index
 
-        # Création d'un tableau formaté pour l'affichage
-        df_display_formatted = pd.DataFrame()
-        df_display_formatted.index = df_display.index
+        # Formatage manuel de chaque colonne pour éviter les problèmes de Series
+        df_display['Open'] = [f"${x:.2f}" for x in data['Open']]
+        df_display['High'] = [f"${x:.2f}" for x in data['High']]
+        df_display['Low'] = [f"${x:.2f}" for x in data['Low']]
+        df_display['Close'] = [f"${x:.2f}" for x in data['Close']]
 
-        # Formatage spécifique pour chaque colonne
-        df_display_formatted['Open'] = df_display['Open'].apply(lambda x: f"${x:.2f}")
-        df_display_formatted['High'] = df_display['High'].apply(lambda x: f"${x:.2f}")
-        df_display_formatted['Low'] = df_display['Low'].apply(lambda x: f"${x:.2f}")
-        df_display_formatted['Close'] = df_display['Close'].apply(lambda x: f"${x:.2f}")
+        # Calculer la variation quotidienne
+        daily_changes = data['Close'].pct_change() * 100
+        df_display['Variation (%)'] = [f"{x:.2f}%" if not pd.isna(x) else "N/A" for x in daily_changes]
 
         # Formatage du volume
-        volumes = []
-        for vol in df_display['Volume']:
-            volumes.append(format_large_number(vol))
-        df_display_formatted['Volume'] = volumes
-
-        # Formatage de la variation
-        df_display_formatted['Variation (%)'] = df_display['Variation (%)'].apply(
-            lambda x: f"{x:.2f}%" if not pd.isna(x) else "N/A"
-        )
+        df_display['Volume'] = [format_large_number(x) for x in data['Volume']]
 
         # Affichage du tableau avec filtres
-        st.dataframe(df_display_formatted)
+        st.dataframe(df_display)
 
-        # Option de téléchargement
+        # Option de téléchargement (données originales)
         csv = data.to_csv()
         st.download_button(
             label="Télécharger les données (CSV)",
@@ -128,3 +112,4 @@ try:
 
 except Exception as e:
     st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
+    st.error(str(e))  # Afficher l'erreur détaillée
