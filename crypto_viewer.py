@@ -12,7 +12,9 @@ st.title("Visualisation de données de cryptocurrencies")
 crypto_dict = {
     "Bitcoin": "BTC-USD",
     "Ethereum": "ETH-USD",
-    "Solana": "SOL-USD"
+    "Solana": "SOL-USD",
+    "Cardano": "ADA-USD",
+    "Dogecoin": "DOGE-USD"
 }
 
 # Paramètres de sélection en haut de la page
@@ -47,16 +49,9 @@ if start_date > end_date:
 @st.cache_data
 def get_crypto_data(ticker, start, end):
     try:
+        # Télécharger toutes les données brutes d'abord
         data = yf.download(ticker, start=start, end=end)
-        # Sélection des colonnes souhaitées et renommage pour plus de clarté
-        selected_columns = data[['High', 'Low', 'Close', 'Volume']]
-        selected_columns = selected_columns.rename(columns={
-            'High': 'Prix le plus haut',
-            'Low': 'Prix le plus bas',
-            'Close': 'Prix de clôture',
-            'Volume': 'Volume'
-        })
-        return selected_columns
+        return data
     except Exception as e:
         st.error(f"Erreur lors de la récupération des données: {e}")
         return None
@@ -72,43 +67,43 @@ st.markdown("---")
 if load_button:
     with st.spinner('Chargement des données en cours...'):
         ticker_symbol = crypto_dict[selected_crypto]
-        data = get_crypto_data(ticker_symbol, start_date, end_date)
+        raw_data = get_crypto_data(ticker_symbol, start_date, end_date)
 
-        if data is not None and not data.empty:
-            # Correction de la ligne avec l'erreur de formatage
-            st.header(f"{selected_crypto} ({ticker_symbol}) - Données")
+        if raw_data is not None and not raw_data.empty:
+            # Préparation des données après vérification de leur disponibilité
+            # IMPORTANT: faire le traitement des colonnes ici, pas avant
+            st.header(f"{selected_crypto} ({ticker_symbol}) - Données du {start_date} au {end_date}")
 
-            # Affichage des stats rapides - correction
+            # Calculer les métriques directement sur les colonnes d'origine
+            first_price = raw_data['Close'].iloc[0]
+            last_price = raw_data['Close'].iloc[-1]
+            percent_change = ((last_price - first_price) / first_price) * 100
+            avg_volume = raw_data['Volume'].mean()
+
+            # Affichage des stats rapides
             metric_col1, metric_col2, metric_col3 = st.columns(3)
 
-            # Calculer les valeurs de début et de fin pour la période
-            first_price = data['Prix de clôture'].iloc[0]
-            last_price = data['Prix de clôture'].iloc[-1]
-            percent_change = ((last_price - first_price) / first_price) * 100
+            # Afficher les métriques de manière sécurisée sans formatage complexe
+            metric_col1.metric("Prix actuel", f"${round(last_price, 2)}")
+            metric_col2.metric("Variation de prix", f"{round(percent_change, 2)}%")
+            metric_col3.metric("Volume moyen", f"{int(avg_volume)}")
 
-            # Correction des métriques pour éviter les erreurs de formatage
-            metric_col1.metric(
-                label="Prix actuel",
-                value="$" + str(round(last_price, 2))
-            )
-
-            metric_col2.metric(
-                label="Variation de prix",
-                value=str(round(percent_change, 2)) + "%"
-            )
-
-            metric_col3.metric(
-                label="Volume moyen",
-                value=str(round(data['Volume'].mean(), 0))
-            )
+            # Renommer les colonnes pour l'affichage seulement après avoir calculé les métriques
+            data_display = raw_data.rename(columns={
+                'Date': 'Date',
+                'High': 'Prix le plus haut',
+                'Low': 'Prix le plus bas',
+                'Close': 'Prix de clôture',
+                'Volume': 'Volume'
+            })
 
             # Affichage d'un graphique interactif avec plotly
             st.subheader("Graphique d'évolution du prix")
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=data.index, y=data['Prix de clôture'], mode='lines', name='Prix de clôture'))
-            fig.add_trace(go.Scatter(x=data.index, y=data['Prix le plus haut'], mode='lines', name='Prix le plus haut',
+            fig.add_trace(go.Scatter(x=raw_data.index, y=raw_data['Close'], mode='lines', name='Prix de clôture'))
+            fig.add_trace(go.Scatter(x=raw_data.index, y=raw_data['High'], mode='lines', name='Prix le plus haut',
                                      line=dict(dash='dash')))
-            fig.add_trace(go.Scatter(x=data.index, y=data['Prix le plus bas'], mode='lines', name='Prix le plus bas',
+            fig.add_trace(go.Scatter(x=raw_data.index, y=raw_data['Low'], mode='lines', name='Prix le plus bas',
                                      line=dict(dash='dot')))
             fig.update_layout(
                 title=f"Évolution du prix de {selected_crypto}",
@@ -121,7 +116,7 @@ if load_button:
             # Afficher le volume
             st.subheader("Volume d'échanges")
             volume_fig = go.Figure()
-            volume_fig.add_trace(go.Bar(x=data.index, y=data['Volume'], name='Volume'))
+            volume_fig.add_trace(go.Bar(x=raw_data.index, y=raw_data['Volume'], name='Volume'))
             volume_fig.update_layout(
                 title=f"Volume d'échanges de {selected_crypto}",
                 xaxis_title="Date",
@@ -130,11 +125,14 @@ if load_button:
             )
             st.plotly_chart(volume_fig, use_container_width=True)
 
-            # Affichage du tableau de données avec les colonnes sélectionnées
+            # Préparation des données pour l'affichage et le téléchargement
             st.subheader("Tableau de données")
-            # Réinitialiser l'index pour afficher la date comme une colonne
-            display_data = data.reset_index()
-            display_data = display_data.rename(columns={'index': 'Date'})
+            # Sélectionner et renommer les colonnes pour l'affichage
+            display_cols = ['High', 'Low', 'Close', 'Volume']
+            display_data = raw_data[display_cols].copy().reset_index()
+            display_data.columns = ['Date', 'Prix le plus haut', 'Prix le plus bas', 'Prix de clôture', 'Volume']
+
+            # Afficher le DataFrame
             st.dataframe(display_data, use_container_width=True)
 
             # Option pour télécharger les données
@@ -145,7 +143,6 @@ if load_button:
                 file_name=f'{selected_crypto}_{start_date}_to_{end_date}.csv',
                 mime='text/csv',
             )
-
         else:
             st.warning("Aucune donnée disponible pour cette période.")
 
