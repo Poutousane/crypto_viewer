@@ -263,7 +263,7 @@ if load_button:
             metric_cols[3].markdown(f"""
             <div class="metric-container">
                 <div class="metric-label">Fourchette de prix</div>
-                f"<div class=\"metric-value\">${format_large_number(lowest_price)} - ${format_large_number(highest_price)}</div>"
+                f"<div class=\"metric-value\">${float(lowest_price):.2f} - ${float(highest_price):.2f}</div>"
             </div>
             """, unsafe_allow_html=True)
 
@@ -278,10 +278,10 @@ if load_button:
                 'Statistique': ['Prix d\'ouverture', 'Prix de clôture', 'Prix le plus haut', 'Prix le plus bas',
                                 'Volume total', 'Volume moyen', 'Variation absolue', 'Variation en %'],
                 'Valeur': [
-                    f"${raw_data['Open'].iloc[0]:,.2f}",
-                    f"${raw_data['Close'].iloc[-1]:,.2f}",
-                    f"${raw_data['High'].max():,.2f}",
-                    f"${raw_data['Low'].min():,.2f}",
+                    f"${format_large_number(raw_data['Open'].iloc[0])}",
+                    f"${format_large_number(raw_data['Close'].iloc[-1])}",
+                    f"${format_large_number(raw_data['High'].max())}",
+                    f"${format_large_number(raw_data['Low'].min())}",
                     f"{format_large_number(raw_data['Volume'].sum())}",
                     f"{format_large_number(raw_data['Volume'].mean())}",
                     f"${(last_price - first_price):,.2f}",
