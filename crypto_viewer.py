@@ -48,7 +48,15 @@ if start_date > end_date:
 def get_crypto_data(ticker, start, end):
     try:
         data = yf.download(ticker, start=start, end=end)
-        return data
+        # Sélection des colonnes souhaitées et renommage pour plus de clarté
+        selected_columns = data[['High', 'Low', 'Close', 'Volume']]
+        selected_columns = selected_columns.rename(columns={
+            'High': 'Prix le plus haut',
+            'Low': 'Prix le plus bas',
+            'Close': 'Prix de clôture',
+            'Volume': 'Volume'
+        })
+        return selected_columns
     except Exception as e:
         st.error(f"Erreur lors de la récupération des données: {e}")
         return None
@@ -73,18 +81,23 @@ if load_button:
             metric_col1, metric_col2, metric_col3 = st.columns(3)
 
             # Calculer les valeurs de début et de fin pour la période
-            first_price = data['Close'].iloc[0]
-            last_price = data['Close'].iloc[-1]
+            first_price = data['Prix de clôture'].iloc[0]
+            last_price = data['Prix de clôture'].iloc[-1]
             percent_change = ((last_price - first_price) / first_price) * 100
 
+            # Correction du formatage des métriques
             metric_col1.metric("Prix actuel", f"${last_price:.2f}")
-            metric_col2.metric("Variation de prix", f"{percent_change:.2f}%", f"{percent_change:.2f}%")
-            metric_col3.metric("Volume moyen", f"{data['Volume'].mean():.2f}")
+            metric_col2.metric("Variation de prix", f"{percent_change:.2f}%")
+            metric_col3.metric("Volume moyen", f"{data['Volume'].mean():.0f}")
 
             # Affichage d'un graphique interactif avec plotly
             st.subheader("Graphique d'évolution du prix")
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Prix de clôture'))
+            fig.add_trace(go.Scatter(x=data.index, y=data['Prix de clôture'], mode='lines', name='Prix de clôture'))
+            fig.add_trace(go.Scatter(x=data.index, y=data['Prix le plus haut'], mode='lines', name='Prix le plus haut',
+                                     line=dict(dash='dash')))
+            fig.add_trace(go.Scatter(x=data.index, y=data['Prix le plus bas'], mode='lines', name='Prix le plus bas',
+                                     line=dict(dash='dot')))
             fig.update_layout(
                 title=f"Évolution du prix de {selected_crypto}",
                 xaxis_title="Date",
@@ -105,12 +118,15 @@ if load_button:
             )
             st.plotly_chart(volume_fig, use_container_width=True)
 
-            # Affichage du tableau de données
+            # Affichage du tableau de données avec les colonnes sélectionnées
             st.subheader("Tableau de données")
-            st.dataframe(data, use_container_width=True)
+            # Réinitialiser l'index pour afficher la date comme une colonne
+            display_data = data.reset_index()
+            display_data = display_data.rename(columns={'Date': 'Date'})
+            st.dataframe(display_data, use_container_width=True)
 
             # Option pour télécharger les données
-            csv = data.to_csv()
+            csv = display_data.to_csv(index=False)
             st.download_button(
                 label="Télécharger les données en CSV",
                 data=csv,
