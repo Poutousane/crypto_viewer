@@ -214,17 +214,28 @@ if load_button:
 
             # Variation avec couleur selon positif/négatif
 
-            # Vérifiez d'abord si la valeur est valide
-            if pd.isna(percent_change):
-                change_color = "neutral"  # ou une autre valeur par défaut
+            # Convertir percent_change en valeur simple si c'est une Series
+            if isinstance(percent_change, pd.Series):
+                if pd.isna(percent_change).any():
+                    change_color = "neutral"  # ou une autre valeur par défaut
+                    percent_change_value = 0  # valeur par défaut
+                else:
+                    percent_change_value = percent_change.iloc[0]  # prendre la première valeur
+                    change_color = "positive" if percent_change_value >= 0 else "negative"
             else:
-                change_color = "positive" if percent_change >= 0 else "negative"
+                # Si c'est déjà une valeur simple
+                if pd.isna(percent_change):
+                    change_color = "neutral"  # ou une autre valeur par défaut
+                    percent_change_value = 0  # valeur par défaut
+                else:
+                    percent_change_value = percent_change
+                    change_color = "positive" if percent_change_value >= 0 else "negative"
 
-            change_symbol = "+" if percent_change >= 0 else ""
+            change_symbol = "+" if percent_change_value >= 0 else ""
             metric_cols[1].markdown(f"""
             <div class="metric-container">
                 <div class="metric-label">Variation de prix</div>
-                <div class="metric-value {change_color}">{change_symbol}{percent_change:.2f}%</div>
+                <div class="metric-value {change_color}">{change_symbol}{percent_change_value:.2f}%</div>
                 <div class="metric-delta {change_color}">Depuis le {start_date.strftime('%d/%m/%Y')}</div>
             </div>
             """, unsafe_allow_html=True)
