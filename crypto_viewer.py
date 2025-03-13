@@ -263,7 +263,7 @@ if load_button:
             metric_cols[3].markdown(f"""
             <div class="metric-container">
                 <div class="metric-label">Fourchette de prix</div>
-                <div class="metric-value">${lowest_price:,.2f} - ${highest_price:,.2f}</div>
+                f"<div class=\"metric-value\">${format_large_number(lowest_price)} - ${format_large_number(highest_price)}</div>"
             </div>
             """, unsafe_allow_html=True)
 
