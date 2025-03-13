@@ -213,7 +213,13 @@ if load_button:
             """ % formatted_price, unsafe_allow_html=True)
 
             # Variation avec couleur selon positif/négatif
-            change_color = "positive" if percent_change >= 0 else "negative"
+
+            # Vérifiez d'abord si la valeur est valide
+            if pd.isna(percent_change):
+                change_color = "neutral"  # ou une autre valeur par défaut
+            else:
+                change_color = "positive" if percent_change >= 0 else "negative"
+
             change_symbol = "+" if percent_change >= 0 else ""
             metric_cols[1].markdown(f"""
             <div class="metric-container">
