@@ -41,11 +41,11 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Extraction des valeurs scalaires (pas de Series)
-        latest_close_value = data['Close'].iloc[-1]
-        first_close_value = data['Close'].iloc[0]
+        # Extraction explicite des valeurs scalaires avec .item()
+        latest_close_value = float(data['Close'].iloc[-1])  # Conversion explicite en float
+        first_close_value = float(data['Close'].iloc[0])  # Conversion explicite en float
         variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
-        latest_volume_value = data['Volume'].iloc[-1]
+        latest_volume_value = float(data['Volume'].iloc[-1])  # Conversion explicite en float
 
         # Affichage des indicateurs clés
         st.subheader("Indicateurs clés")
@@ -53,18 +53,18 @@ try:
         metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
         with metrics_col1:
-            # Convertir en chaîne de caractères avant d'utiliser st.metric
+            # Formatage dans une chaîne de caractères séparée
             formatted_close = f"${latest_close_value:.2f}"
             st.metric("Prix de clôture", formatted_close)
 
         with metrics_col2:
-            # Convertir en chaîne de caractères avant d'utiliser st.metric
+            # Formatage dans une chaîne de caractères séparée
             formatted_variation = f"{variation_value:.2f}%"
-            st.metric("Variation", formatted_variation, delta=formatted_variation)
+            formatted_delta = f"{variation_value:.2f}%"
+            st.metric("Variation", formatted_variation, delta=formatted_delta)
 
         with metrics_col3:
-            # Format volume manuellement et convertir en chaîne
-            vol_str = ""
+            # Formatage du volume dans une chaîne séparée
             if latest_volume_value >= 1e9:
                 vol_str = f"{latest_volume_value / 1e9:.2f} G"
             elif latest_volume_value >= 1e6:
@@ -78,7 +78,6 @@ try:
         # Tableau des données
         st.subheader("Données historiques")
 
-        # Préparation des données pour l'affichage
         # Calculer la variation quotidienne
         data['Daily_Change'] = data['Close'].pct_change() * 100
 
@@ -133,4 +132,4 @@ except Exception as e:
     st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
     import traceback
 
-    st.error(traceback.format_exc())  # Afficher la trace complète pour un meilleur débogage
+    st.error(f"Traceback détaillé: {traceback.format_exc()}")  # Afficher la trace complète pour un meilleur débogage
