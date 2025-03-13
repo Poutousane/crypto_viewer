@@ -19,21 +19,6 @@ cryptos = {
     "Polkadot": "DOT-USD"
 }
 
-
-# Fonction pour formater les grands nombres (version simplifiée)
-def format_large_number(num):
-    if pd.isna(num):
-        return "N/A"
-    if num >= 1e9:
-        return f"{num / 1e9:.2f} G"
-    elif num >= 1e6:
-        return f"{num / 1e6:.2f} M"
-    elif num >= 1e3:
-        return f"{num / 1e3:.2f} k"
-    else:
-        return f"{num:.2f}"
-
-
 # Interface utilisateur pour sélection de crypto et dates
 col1, col2, col3 = st.columns(3)
 
@@ -56,7 +41,7 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Calcul des indicateurs clés (extraire des scalaires, pas des Series)
+        # Calcul des indicateurs clés
         latest_close = float(data['Close'].iloc[-1])
         first_close = float(data['Close'].iloc[0])
         variation = ((latest_close - first_close) / first_close) * 100
@@ -74,29 +59,57 @@ try:
             st.metric("Variation", f"{variation:.2f}%", delta=f"{variation:.2f}%")
 
         with metrics_col3:
-            st.metric("Volume (dernier jour)", format_large_number(latest_volume))
+            # Format volume manually
+            vol_str = ""
+            if latest_volume >= 1e9:
+                vol_str = f"{latest_volume / 1e9:.2f} G"
+            elif latest_volume >= 1e6:
+                vol_str = f"{latest_volume / 1e6:.2f} M"
+            elif latest_volume >= 1e3:
+                vol_str = f"{latest_volume / 1e3:.2f} k"
+            else:
+                vol_str = f"{latest_volume:.2f}"
+            st.metric("Volume (dernier jour)", vol_str)
 
         # Tableau des données
         st.subheader("Données historiques")
 
-        # Préparation des données pour l'affichage (créer un nouveau DataFrame)
-        df_display = pd.DataFrame()
+        # Créer un dataframe pour l'affichage avec des colonnes formatées manuellement
+        display_data = []
 
-        # Copier l'index
-        df_display.index = data.index
+        for idx, row in data.iterrows():
+            # Calculer la variation en pourcentage par rapport au jour précédent
+            prev_close = data['Close'].shift(1).loc[idx] if idx > 0 else None
+            if prev_close is not None:
+                daily_change_pct = ((row['Close'] - prev_close) / prev_close) * 100
+                daily_change_str = f"{daily_change_pct:.2f}%"
+            else:
+                daily_change_str = "N/A"
 
-        # Formatage manuel de chaque colonne pour éviter les problèmes de Series
-        df_display['Open'] = [f"${x:.2f}" for x in data['Open']]
-        df_display['High'] = [f"${x:.2f}" for x in data['High']]
-        df_display['Low'] = [f"${x:.2f}" for x in data['Low']]
-        df_display['Close'] = [f"${x:.2f}" for x in data['Close']]
+            # Formater le volume
+            volume = row['Volume']
+            if volume >= 1e9:
+                volume_str = f"{volume / 1e9:.2f} G"
+            elif volume >= 1e6:
+                volume_str = f"{volume / 1e6:.2f} M"
+            elif volume >= 1e3:
+                volume_str = f"{volume / 1e3:.2f} k"
+            else:
+                volume_str = f"{volume:.2f}"
 
-        # Calculer la variation quotidienne
-        daily_changes = data['Close'].pct_change() * 100
-        df_display['Variation (%)'] = [f"{x:.2f}%" if not pd.isna(x) else "N/A" for x in daily_changes]
+            # Ajouter une ligne au tableau d'affichage
+            display_data.append({
+                'Date': idx.strftime('%Y-%m-%d'),
+                'Open': f"${row['Open']:.2f}",
+                'High': f"${row['High']:.2f}",
+                'Low': f"${row['Low']:.2f}",
+                'Close': f"${row['Close']:.2f}",
+                'Variation (%)': daily_change_str,
+                'Volume': volume_str
+            })
 
-        # Formatage du volume
-        df_display['Volume'] = [format_large_number(x) for x in data['Volume']]
+        # Créer le dataframe d'affichage
+        df_display = pd.DataFrame(display_data)
 
         # Affichage du tableau avec filtres
         st.dataframe(df_display)
@@ -112,4 +125,6 @@ try:
 
 except Exception as e:
     st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
-    st.error(str(e))  # Afficher l'erreur détaillée
+    import traceback
+
+    st.error(traceback.format_exc())  # Afficher la trace complète pour un meilleur débogage
