@@ -74,42 +74,34 @@ try:
         # Tableau des données
         st.subheader("Données historiques")
 
-        # Créer un dataframe pour l'affichage avec des colonnes formatées manuellement
-        display_data = []
+        # Calculer la variation quotidienne
+        data['Daily Change'] = data['Close'].pct_change() * 100
 
-        for idx, row in data.iterrows():
-            # Calculer la variation en pourcentage par rapport au jour précédent
-            prev_close = data['Close'].shift(1).loc[idx] if idx > 0 else None
-            if prev_close is not None:
-                daily_change_pct = ((row['Close'] - prev_close) / prev_close) * 100
-                daily_change_str = f"{daily_change_pct:.2f}%"
+        # Créer un dataframe d'affichage simplifié
+        df_display = pd.DataFrame()
+        df_display['Open'] = [f"${x:.2f}" for x in data['Open']]
+        df_display['High'] = [f"${x:.2f}" for x in data['High']]
+        df_display['Low'] = [f"${x:.2f}" for x in data['Low']]
+        df_display['Close'] = [f"${x:.2f}" for x in data['Close']]
+
+        # Formater la variation
+        df_display['Variation (%)'] = ["N/A" if pd.isna(x) else f"{x:.2f}%" for x in data['Daily Change']]
+
+        # Formater le volume manuellement
+        volume_formatted = []
+        for vol in data['Volume']:
+            if vol >= 1e9:
+                volume_formatted.append(f"{vol / 1e9:.2f} G")
+            elif vol >= 1e6:
+                volume_formatted.append(f"{vol / 1e6:.2f} M")
+            elif vol >= 1e3:
+                volume_formatted.append(f"{vol / 1e3:.2f} k")
             else:
-                daily_change_str = "N/A"
+                volume_formatted.append(f"{vol:.2f}")
+        df_display['Volume'] = volume_formatted
 
-            # Formater le volume
-            volume = row['Volume']
-            if volume >= 1e9:
-                volume_str = f"{volume / 1e9:.2f} G"
-            elif volume >= 1e6:
-                volume_str = f"{volume / 1e6:.2f} M"
-            elif volume >= 1e3:
-                volume_str = f"{volume / 1e3:.2f} k"
-            else:
-                volume_str = f"{volume:.2f}"
-
-            # Ajouter une ligne au tableau d'affichage
-            display_data.append({
-                'Date': idx.strftime('%Y-%m-%d'),
-                'Open': f"${row['Open']:.2f}",
-                'High': f"${row['High']:.2f}",
-                'Low': f"${row['Low']:.2f}",
-                'Close': f"${row['Close']:.2f}",
-                'Variation (%)': daily_change_str,
-                'Volume': volume_str
-            })
-
-        # Créer le dataframe d'affichage
-        df_display = pd.DataFrame(display_data)
+        # Conserver l'index de dates
+        df_display.index = data.index
 
         # Affichage du tableau avec filtres
         st.dataframe(df_display)
