@@ -41,11 +41,11 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Calcul des indicateurs clés
-        latest_close = float(data['Close'].iloc[-1])
-        first_close = float(data['Close'].iloc[0])
+        # Calcul des indicateurs clés (utilisation correcte des Series)
+        latest_close = data['Close'].iloc[-1]
+        first_close = data['Close'].iloc[0]
         variation = ((latest_close - first_close) / first_close) * 100
-        latest_volume = float(data['Volume'].iloc[-1])
+        latest_volume = data['Volume'].iloc[-1]
 
         # Affichage des indicateurs clés
         st.subheader("Indicateurs clés")
@@ -74,37 +74,50 @@ try:
         # Tableau des données
         st.subheader("Données historiques")
 
+        # Préparation des données pour l'affichage
         # Calculer la variation quotidienne
-        data['Daily Change'] = data['Close'].pct_change() * 100
+        data['Daily_Change'] = data['Close'].pct_change() * 100
 
-        # Créer un dataframe d'affichage simplifié
-        df_display = pd.DataFrame()
-        df_display['Open'] = [f"${x:.2f}" for x in data['Open']]
-        df_display['High'] = [f"${x:.2f}" for x in data['High']]
-        df_display['Low'] = [f"${x:.2f}" for x in data['Low']]
-        df_display['Close'] = [f"${x:.2f}" for x in data['Close']]
+        # Créer une copie du dataframe pour l'affichage
+        display_data = data.copy()
 
-        # Formater la variation
-        df_display['Variation (%)'] = ["N/A" if pd.isna(x) else f"{x:.2f}%" for x in data['Daily Change']]
+        # Formater les colonnes une par une en utilisant .apply() sans f-strings
+        display_data = pd.DataFrame(index=data.index)
 
-        # Formater le volume manuellement
-        volume_formatted = []
-        for vol in data['Volume']:
-            if vol >= 1e9:
-                volume_formatted.append(f"{vol / 1e9:.2f} G")
-            elif vol >= 1e6:
-                volume_formatted.append(f"{vol / 1e6:.2f} M")
-            elif vol >= 1e3:
-                volume_formatted.append(f"{vol / 1e3:.2f} k")
-            else:
-                volume_formatted.append(f"{vol:.2f}")
-        df_display['Volume'] = volume_formatted
 
-        # Conserver l'index de dates
-        df_display.index = data.index
+        # Fonction sûre pour formater les prix
+        def format_price(price):
+            return f"${price:.2f}"
+
+
+        # Fonction sûre pour formater la variation
+        def format_change(change):
+            if pd.isna(change):
+                return "N/A"
+            return f"{change:.2f}%"
+
+
+        # Fonction sûre pour formater le volume
+        def format_volume(volume):
+            if volume >= 1e9:
+                return f"{volume / 1e9:.2f} G"
+            elif volume >= 1e6:
+                return f"{volume / 1e6:.2f} M"
+            elif volume >= 1e3:
+                return f"{volume / 1e3:.2f} k"
+            return f"{volume:.2f}"
+
+
+        # Appliquer les formatages colonne par colonne
+        display_data['Open'] = data['Open'].apply(format_price)
+        display_data['High'] = data['High'].apply(format_price)
+        display_data['Low'] = data['Low'].apply(format_price)
+        display_data['Close'] = data['Close'].apply(format_price)
+        display_data['Variation (%)'] = data['Daily_Change'].apply(format_change)
+        display_data['Volume'] = data['Volume'].apply(format_volume)
 
         # Affichage du tableau avec filtres
-        st.dataframe(df_display)
+        st.dataframe(display_data)
 
         # Option de téléchargement (données originales)
         csv = data.to_csv()
