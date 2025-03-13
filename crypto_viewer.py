@@ -41,11 +41,11 @@ try:
     if data.empty:
         st.error(f"Aucune donnée disponible pour {selected_crypto} dans la période sélectionnée.")
     else:
-        # Calcul des indicateurs clés (utilisation correcte des Series)
-        latest_close = data['Close'].iloc[-1]
-        first_close = data['Close'].iloc[0]
-        variation = ((latest_close - first_close) / first_close) * 100
-        latest_volume = data['Volume'].iloc[-1]
+        # Extraction des valeurs scalaires (pas de Series)
+        latest_close_value = data['Close'].iloc[-1]
+        first_close_value = data['Close'].iloc[0]
+        variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
+        latest_volume_value = data['Volume'].iloc[-1]
 
         # Affichage des indicateurs clés
         st.subheader("Indicateurs clés")
@@ -53,22 +53,26 @@ try:
         metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
         with metrics_col1:
-            st.metric("Prix de clôture", f"${latest_close:.2f}")
+            # Convertir en chaîne de caractères avant d'utiliser st.metric
+            formatted_close = f"${latest_close_value:.2f}"
+            st.metric("Prix de clôture", formatted_close)
 
         with metrics_col2:
-            st.metric("Variation", f"{variation:.2f}%", delta=f"{variation:.2f}%")
+            # Convertir en chaîne de caractères avant d'utiliser st.metric
+            formatted_variation = f"{variation_value:.2f}%"
+            st.metric("Variation", formatted_variation, delta=formatted_variation)
 
         with metrics_col3:
-            # Format volume manually
+            # Format volume manuellement et convertir en chaîne
             vol_str = ""
-            if latest_volume >= 1e9:
-                vol_str = f"{latest_volume / 1e9:.2f} G"
-            elif latest_volume >= 1e6:
-                vol_str = f"{latest_volume / 1e6:.2f} M"
-            elif latest_volume >= 1e3:
-                vol_str = f"{latest_volume / 1e3:.2f} k"
+            if latest_volume_value >= 1e9:
+                vol_str = f"{latest_volume_value / 1e9:.2f} G"
+            elif latest_volume_value >= 1e6:
+                vol_str = f"{latest_volume_value / 1e6:.2f} M"
+            elif latest_volume_value >= 1e3:
+                vol_str = f"{latest_volume_value / 1e3:.2f} k"
             else:
-                vol_str = f"{latest_volume:.2f}"
+                vol_str = f"{latest_volume_value:.2f}"
             st.metric("Volume (dernier jour)", vol_str)
 
         # Tableau des données
@@ -78,26 +82,23 @@ try:
         # Calculer la variation quotidienne
         data['Daily_Change'] = data['Close'].pct_change() * 100
 
-        # Créer une copie du dataframe pour l'affichage
-        display_data = data.copy()
-
-        # Formater les colonnes une par une en utilisant .apply() sans f-strings
+        # Créer un DataFrame pour l'affichage
         display_data = pd.DataFrame(index=data.index)
 
 
-        # Fonction sûre pour formater les prix
+        # Fonction pour formater les prix
         def format_price(price):
             return f"${price:.2f}"
 
 
-        # Fonction sûre pour formater la variation
+        # Fonction pour formater la variation
         def format_change(change):
             if pd.isna(change):
                 return "N/A"
             return f"{change:.2f}%"
 
 
-        # Fonction sûre pour formater le volume
+        # Fonction pour formater le volume
         def format_volume(volume):
             if volume >= 1e9:
                 return f"{volume / 1e9:.2f} G"
