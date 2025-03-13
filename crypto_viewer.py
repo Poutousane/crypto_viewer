@@ -89,12 +89,6 @@ crypto_dict = {
     "Dogecoin": {"ticker": "DOGE-USD", "color": "#C2A633", "logo": "Ð"}
 }
 
-# Paramètres de sélection dans une boîte stylisée
-st.markdown("""
-<div style="background-color: #2C2C2C; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-    <h2 style="color: white; font-size: 1.5em; margin-bottom: 15px;">🔍 Paramètres de recherche</h2>
-</div>
-""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 1, 1])
 
