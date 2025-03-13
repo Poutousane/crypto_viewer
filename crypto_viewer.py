@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 
 # Titre de l'application
-st.title("Crypto Viewer 📊")
+st.title("Crypto Viewer")
 
 # Liste des crypto-monnaies disponibles
 cryptos = {
