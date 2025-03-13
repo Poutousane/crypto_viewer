@@ -159,6 +159,17 @@ def get_crypto_data(ticker, start, end):
 
 # Fonction pour formater les grands nombres
 def format_large_number(num):
+    # Vérifier si num est une Series pandas et le convertir si nécessaire
+    if isinstance(num, pd.Series):
+        if num.empty:
+            return "N/A"
+        num = num.iloc[0]  # Prendre la première valeur
+
+    # Vérifier si num est NaN
+    if pd.isna(num):
+        return "N/A"
+
+    # Maintenant traiter la valeur numérique
     if num >= 1e9:
         return f"{num / 1e9:.2f} G"
     elif num >= 1e6:
