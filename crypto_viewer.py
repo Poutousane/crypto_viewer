@@ -78,54 +78,39 @@ try:
         # Calculer la variation quotidienne
         data['Daily_Change'] = data['Close'].pct_change() * 100
 
-        # ======== MÉTHODE CORRIGÉE POUR FORMATER LE DATAFRAME ========
-        # Convertir le DataFrame en dictionnaire, puis formater chaque élément individuellement
-        # Cette approche évite les erreurs de pandas Series.format
+        # Préparer le format des valeurs pour l'affichage
+        # Convertir le DataFrame en valeurs natives Python
 
         # Créer un nouveau DataFrame vide avec les mêmes index
         display_data = pd.DataFrame(index=data.index)
 
-        # Convertir chaque colonne en une liste de chaînes formatées
-        open_formatted = []
-        high_formatted = []
-        low_formatted = []
-        close_formatted = []
-        change_formatted = []
-        volume_formatted = []
+        # Convertir les colonnes numériques en chaînes formatées
+        display_data['Open'] = [f"${x:.2f}" for x in data['Open'].values]
+        display_data['High'] = [f"${x:.2f}" for x in data['High'].values]
+        display_data['Low'] = [f"${x:.2f}" for x in data['Low'].values]
+        display_data['Close'] = [f"${x:.2f}" for x in data['Close'].values]
 
-        # Parcourir les lignes pour un formatage personnalisé
-        for idx in data.index:
-            # Formater les prix
-            open_formatted.append(f"${data.loc[idx, 'Open']:.2f}")
-            high_formatted.append(f"${data.loc[idx, 'High']:.2f}")
-            low_formatted.append(f"${data.loc[idx, 'Low']:.2f}")
-            close_formatted.append(f"${data.loc[idx, 'Close']:.2f}")
-
-            # Formater la variation avec gestion des NaN
-            change = data.loc[idx, 'Daily_Change']
-            if pd.isna(change):
-                change_formatted.append("N/A")
+        # Formater la variation avec gestion des NaN
+        daily_changes = []
+        for x in data['Daily_Change'].values:
+            if pd.isna(x):
+                daily_changes.append("N/A")
             else:
-                change_formatted.append(f"{change:.2f}%")
+                daily_changes.append(f"{x:.2f}%")
+        display_data['Variation (%)'] = daily_changes
 
-            # Formater le volume
-            volume = data.loc[idx, 'Volume']
-            if volume >= 1e9:
-                volume_formatted.append(f"{volume / 1e9:.2f} G")
-            elif volume >= 1e6:
-                volume_formatted.append(f"{volume / 1e6:.2f} M")
-            elif volume >= 1e3:
-                volume_formatted.append(f"{volume / 1e3:.2f} k")
+        # Formater le volume
+        volumes = []
+        for vol in data['Volume'].values:
+            if vol >= 1e9:
+                volumes.append(f"{vol / 1e9:.2f} G")
+            elif vol >= 1e6:
+                volumes.append(f"{vol / 1e6:.2f} M")
+            elif vol >= 1e3:
+                volumes.append(f"{vol / 1e3:.2f} k")
             else:
-                volume_formatted.append(f"{volume:.2f}")
-
-        # Ajouter les listes formatées comme nouvelles colonnes
-        display_data['Open'] = open_formatted
-        display_data['High'] = high_formatted
-        display_data['Low'] = low_formatted
-        display_data['Close'] = close_formatted
-        display_data['Variation (%)'] = change_formatted
-        display_data['Volume'] = volume_formatted
+                volumes.append(f"{vol:.2f}")
+        display_data['Volume'] = volumes
 
         # Affichage du tableau avec filtres
         st.dataframe(display_data)
