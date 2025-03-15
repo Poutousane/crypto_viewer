@@ -8,7 +8,6 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import numbers
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -51,60 +50,32 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un graphique en bougies (candlestick)
-def create_candlestick_chart(data, timeframe='day'):
-    # Rééchantillonnage des données si on veut voir par mois
-    if timeframe == 'month':
-        # Resample pour obtenir des données mensuelles
-        data_resampled = data.resample('M').agg({
-            'Open': 'first',
-            'High': 'max',
-            'Low': 'min',
-            'Close': 'last',
-            'Volume': 'sum'
-        })
-        chart_data = data_resampled
-    else:
-        chart_data = data
-
+# Fonction pour créer un graphique en bougies (candlestick) simplifié
+def create_candlestick_chart(data):
     # Créer la figure
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        vertical_spacing=0.03,
-                        subplot_titles=('Prix', 'Volume'),
-                        row_heights=[0.8, 0.2])
+    fig = go.Figure()
 
     # Ajouter les bougies
     fig.add_trace(go.Candlestick(
-        x=chart_data.index,
-        open=chart_data['Open'],
-        high=chart_data['High'],
-        low=chart_data['Low'],
-        close=chart_data['Close'],
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
         increasing_line_color='green',
         decreasing_line_color='red',
         name='Prix'
-    ), row=1, col=1)
-
-    # Ajouter le volume
-    colors = ['red' if close < open else 'green' for open, close in zip(chart_data['Open'], chart_data['Close'])]
-
-    fig.add_trace(go.Bar(
-        x=chart_data.index,
-        y=chart_data['Volume'],
-        marker_color=colors,
-        name='Volume'
-    ), row=2, col=1)
+    ))
 
     # Mettre à jour la mise en page
     fig.update_layout(
-        title=f'Graphique en bougies ({timeframe})',
+        title='Graphique en bougies (day)',
         yaxis_title='Prix',
         xaxis_rangeslider_visible=False,
-        height=600,
-        margin=dict(l=50, r=50, t=80, b=50)
+        height=500,
+        margin=dict(l=50, r=50, t=80, b=50),
+        template="plotly_dark"  # Utilise un thème sombre comme dans l'image
     )
-
-    fig.update_yaxes(title_text='Volume', row=2, col=1)
 
     return fig
 
@@ -188,109 +159,107 @@ def display_asset_data(assets, tab_key):
         if data.empty:
             st.error(f"Aucune donnée disponible pour {selected_asset} dans la période sélectionnée.")
         else:
-            # Extraction explicite des valeurs scalaires individuelles
-            latest_close_value = float(data['Close'].iloc[-1])
-            first_close_value = float(data['Close'].iloc[0])
-            variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
-            latest_volume_value = float(data['Volume'].iloc[-1])
+            # S'assurer que les données ne sont pas vides
+            if not data.empty and len(data) > 0:
+                # Extraction explicite des valeurs scalaires individuelles
+                latest_close_value = float(data['Close'].iloc[-1])
+                first_close_value = float(data['Close'].iloc[0])
+                variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
+                latest_volume_value = float(data['Volume'].iloc[-1])
 
-            # Affichage des indicateurs clés
-            st.subheader("Indicateurs clés")
+                # Affichage des indicateurs clés
+                st.subheader("Indicateurs clés")
 
-            metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
-            with metrics_col1:
-                formatted_close = f"${latest_close_value:.2f}"
-                st.metric("Prix de clôture", formatted_close)
+                with metrics_col1:
+                    formatted_close = f"${latest_close_value:.2f}"
+                    st.metric("Prix de clôture", formatted_close)
 
-            with metrics_col2:
-                formatted_variation = f"{variation_value:.2f}%"
-                formatted_delta = f"{variation_value:.2f}%"
-                st.metric("Variation", formatted_variation, delta=formatted_delta)
+                with metrics_col2:
+                    formatted_variation = f"{variation_value:.2f}%"
+                    formatted_delta = f"{variation_value:.2f}%"
+                    st.metric("Variation", formatted_variation, delta=formatted_delta)
 
-            with metrics_col3:
-                if latest_volume_value >= 1e9:
-                    vol_str = f"{latest_volume_value / 1e9:.2f} G"
-                elif latest_volume_value >= 1e6:
-                    vol_str = f"{latest_volume_value / 1e6:.2f} M"
-                elif latest_volume_value >= 1e3:
-                    vol_str = f"{latest_volume_value / 1e3:.2f} k"
-                else:
-                    vol_str = f"{latest_volume_value:.2f}"
-                st.metric("Volume (dernier jour)", vol_str)
+                with metrics_col3:
+                    if latest_volume_value >= 1e9:
+                        vol_str = f"{latest_volume_value / 1e9:.2f} G"
+                    elif latest_volume_value >= 1e6:
+                        vol_str = f"{latest_volume_value / 1e6:.2f} M"
+                    elif latest_volume_value >= 1e3:
+                        vol_str = f"{latest_volume_value / 1e3:.2f} k"
+                    else:
+                        vol_str = f"{latest_volume_value:.2f}"
+                    st.metric("Volume (dernier jour)", vol_str)
 
-            # Affichage du graphique en bougies
-            st.subheader("Graphique")
+                # Affichage du graphique en bougies (seulement en jour)
+                st.subheader("Graphique")
 
-            # Sélecteur pour choisir l'intervalle de temps (jour ou mois)
-            timeframe = st.radio("Afficher par:", ["jour", "mois"], horizontal=True, key=f"timeframe_{tab_key}")
+                # Créer le graphique en bougies
+                candlestick_fig = create_candlestick_chart(data)
 
-            # Créer le graphique selon le timeframe sélectionné
-            if timeframe == "jour":
-                candlestick_fig = create_candlestick_chart(data, 'day')
+                # Afficher le graphique
+                st.plotly_chart(candlestick_fig, use_container_width=True)
+
+                # Tableau des données
+                st.subheader("Données historiques")
+
+                # Calculer la variation quotidienne
+                data['Daily_Change'] = data['Close'].pct_change() * 100
+
+                # Créer un DataFrame pour l'affichage avec l'index recréé sans l'heure
+                display_data = pd.DataFrame(index=[d.date() for d in data.index])
+
+                # Convertir les valeurs numpy en valeurs Python natives
+                open_values = [float(x) for x in data['Open'].to_numpy()]
+                high_values = [float(x) for x in data['High'].to_numpy()]
+                low_values = [float(x) for x in data['Low'].to_numpy()]
+                close_values = [float(x) for x in data['Close'].to_numpy()]
+
+                # Formater les prix
+                display_data['Open'] = [f"${x:.2f}" for x in open_values]
+                display_data['High'] = [f"${x:.2f}" for x in high_values]
+                display_data['Low'] = [f"${x:.2f}" for x in low_values]
+                display_data['Close'] = [f"${x:.2f}" for x in close_values]
+
+                # Formater la variation avec gestion des NaN
+                daily_changes = []
+                for x in data['Daily_Change'].to_numpy():
+                    if pd.isna(x):
+                        daily_changes.append("N/A")
+                    else:
+                        daily_changes.append(f"{float(x):.2f}%")
+                display_data['Variation (%)'] = daily_changes
+
+                # Formater le volume
+                volumes = []
+                for vol in data['Volume'].to_numpy():
+                    vol = float(vol)
+                    if vol >= 1e9:
+                        volumes.append(f"{vol / 1e9:.2f} G")
+                    elif vol >= 1e6:
+                        volumes.append(f"{vol / 1e6:.2f} M")
+                    elif vol >= 1e3:
+                        volumes.append(f"{vol / 1e3:.2f} k")
+                    else:
+                        volumes.append(f"{vol:.2f}")
+                display_data['Volume'] = volumes
+
+                # Affichage du tableau avec filtres
+                st.dataframe(display_data)
+
+                # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
+                excel_data = create_excel(data, selected_asset)
+
+                st.download_button(
+                    label="Télécharger les données (XLSX)",
+                    data=excel_data,
+                    file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key=f"download_{tab_key}"
+                )
             else:
-                candlestick_fig = create_candlestick_chart(data, 'month')
-
-            # Afficher le graphique
-            st.plotly_chart(candlestick_fig, use_container_width=True)
-
-            # Tableau des données
-            st.subheader("Données historiques")
-
-            # Calculer la variation quotidienne
-            data['Daily_Change'] = data['Close'].pct_change() * 100
-
-            # Créer un DataFrame pour l'affichage avec l'index recréé sans l'heure
-            display_data = pd.DataFrame(index=[d.date() for d in data.index])
-
-            # Convertir les valeurs numpy en valeurs Python natives
-            open_values = [float(x) for x in data['Open'].to_numpy()]
-            high_values = [float(x) for x in data['High'].to_numpy()]
-            low_values = [float(x) for x in data['Low'].to_numpy()]
-            close_values = [float(x) for x in data['Close'].to_numpy()]
-
-            # Formater les prix
-            display_data['Open'] = [f"${x:.2f}" for x in open_values]
-            display_data['High'] = [f"${x:.2f}" for x in high_values]
-            display_data['Low'] = [f"${x:.2f}" for x in low_values]
-            display_data['Close'] = [f"${x:.2f}" for x in close_values]
-
-            # Formater la variation avec gestion des NaN
-            daily_changes = []
-            for x in data['Daily_Change'].to_numpy():
-                if pd.isna(x):
-                    daily_changes.append("N/A")
-                else:
-                    daily_changes.append(f"{float(x):.2f}%")
-            display_data['Variation (%)'] = daily_changes
-
-            # Formater le volume
-            volumes = []
-            for vol in data['Volume'].to_numpy():
-                vol = float(vol)
-                if vol >= 1e9:
-                    volumes.append(f"{vol / 1e9:.2f} G")
-                elif vol >= 1e6:
-                    volumes.append(f"{vol / 1e6:.2f} M")
-                elif vol >= 1e3:
-                    volumes.append(f"{vol / 1e3:.2f} k")
-                else:
-                    volumes.append(f"{vol:.2f}")
-            display_data['Volume'] = volumes
-
-            # Affichage du tableau avec filtres
-            st.dataframe(display_data)
-
-            # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
-            excel_data = create_excel(data, selected_asset)
-
-            st.download_button(
-                label="Télécharger les données (XLSX)",
-                data=excel_data,
-                file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                key=f"download_{tab_key}"
-            )
+                st.error(f"Aucune donnée n'a été récupérée pour {selected_asset}.")
 
     except Exception as e:
         st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
