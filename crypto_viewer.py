@@ -6,7 +6,6 @@ import numpy as np
 import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import numbers
 import plotly.graph_objects as go
 
 # Titre de l'application
@@ -50,59 +49,126 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un graphique en ligne simple
-def create_simple_chart(data, asset_name):
-    # Vérifier si les données sont valides et non vides
+# Fonction pour créer un graphique en bougies simplifié (style image)
+def create_simple_candlestick_chart(data, asset_name):
+    # Vérifier si les données sont valides
     if data.empty or len(data) <= 1:
-        # Créer un graphique vide avec un message
         fig = go.Figure()
         fig.add_annotation(
             text="Données insuffisantes pour afficher le graphique",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False
         )
-        fig.update_layout(title='Graphique en ligne (day)', height=400, template="plotly_dark")
+        fig.update_layout(height=500, template="plotly_dark")
         return fig
 
-    # Créer la figure
+    # Nettoyage des données
+    valid_data = data[['Open', 'High', 'Low', 'Close']].dropna()
+
+    if len(valid_data) <= 1:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Données insuffisantes après nettoyage",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        fig.update_layout(height=500, template="plotly_dark")
+        return fig
+
+    # Création d'un graphique en bougies simple
     fig = go.Figure()
 
-    # Ajouter la ligne de prix de clôture
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=data['Close'],
-        mode='lines',
-        name='Prix de clôture',
-        line=dict(color='#00BFFF', width=2)
+    # Ajouter les bougies
+    fig.add_trace(go.Candlestick(
+        x=valid_data.index,
+        open=valid_data['Open'],
+        high=valid_data['High'],
+        low=valid_data['Low'],
+        close=valid_data['Close'],
+        increasing_line_color='green',
+        decreasing_line_color='red',
+        name='Prix'
     ))
 
-    # Mettre à jour la mise en page
+    # Configuration du graphique pour qu'il ressemble à une image statique
     fig.update_layout(
-        title=f'Prix journalier - {asset_name}',
-        yaxis_title='Prix',
-        xaxis_title='Date',
-        height=400,
-        margin=dict(l=40, r=40, t=60, b=40),
+        title='Graphique en bougies (day)',
+        height=500,
         template="plotly_dark",
-        hovermode="x unified"
+        margin=dict(l=40, r=40, t=60, b=40),
+        # Désactiver toutes les interactions sauf le survol
+        hovermode='closest',
+        # Désactiver la légende
+        showlegend=False
     )
 
-    # Enlever les outils de zoom et autres interactions complexes
+    # Configurer les axes pour un aspect plus simple
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor='rgba(80, 80, 80, 0.2)',
+        title_text='',
+        # Désactiver les zooms et panoramiques
+        fixedrange=True
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor='rgba(80, 80, 80, 0.2)',
+        title_text='Prix',
+        # Désactiver les zooms et panoramiques
+        fixedrange=True
+    )
+
+    # Configuration avancée pour désactiver les barres d'outils et les interactions
     fig.update_layout(
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(211, 211, 211, 0.2)'
+        # Désactiver les interactions
+        dragmode=False,
+        # Désactiver les options de la barre d'outils
+        modebar=dict(
+            remove=[
+                'zoom', 'pan', 'zoomIn', 'zoomOut', 'autoScale', 'resetScale',
+                'toImage', 'sendDataToCloud', 'toggleHover', 'resetViews',
+                'toggleSpikelines', 'hoverCompareCartesian', 'hoverClosestCartesian',
+                'select2d', 'lasso2d'
+            ]
         ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(211, 211, 211, 0.2)'
+        modebar_orientation='v',
+        modebar_remove=[
+            'zoom', 'pan', 'select', 'lasso', 'autoScale', 'resetScale',
+            'toImage', 'sendDataToCloud', 'toggleHover', 'resetViews',
+            'toggleSpikelines', 'hoverCompareCartesian', 'hoverClosestCartesian'
+        ]
+    )
+
+    # S'assurer que l'échelle y est appropriée
+    price_range = valid_data['High'].max() - valid_data['Low'].min()
+    padding = price_range * 0.1  # Ajouter 10% d'espace
+    fig.update_yaxes(range=[valid_data['Low'].min() - padding, valid_data['High'].max() + padding])
+
+    # Supprimer le rangeslider (barre de navigation en bas)
+    fig.update_layout(xaxis_rangeslider_visible=False)
+
+    # Configurer l'infobulle pour qu'elle soit simple mais informative
+    fig.update_traces(
+        hoverinfo='all',
+        hoverlabel=dict(
+            bgcolor="rgba(60, 60, 60, 0.8)",
+            font_size=12,
+            font_family="Arial"
         ),
+        hovertemplate=(
+                "<b>Date:</b> %{x|%Y-%m-%d}<br>" +
+                "<b>Ouverture:</b> %{open:.2f}<br>" +
+                "<b>Haut:</b> %{high:.2f}<br>" +
+                "<b>Bas:</b> %{low:.2f}<br>" +
+                "<b>Clôture:</b> %{close:.2f}<extra></extra>"
+        )
     )
 
     return fig
 
 
-# Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
+# Fonction pour créer un Excel
 def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
 
@@ -116,13 +182,13 @@ def create_excel(data, sheet_name="Data"):
     export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
     export_data.index.name = 'Date'
 
-    # Réorganiser les colonnes avec Volume et Variation inversées
+    # Réorganiser les colonnes
     export_data = export_data[['Close', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']]
 
     # Renommer les colonnes
     export_data.columns = ['Price', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']
 
-    # Créer et configurer manuellement le fichier Excel
+    # Créer et configurer le fichier Excel
     workbook = Workbook()
     ws = workbook.active
     ws.title = sheet_name
@@ -176,7 +242,6 @@ def display_asset_data(assets, tab_key):
     # Récupération des données
     ticker_symbol = assets[selected_asset]
     try:
-        # Récupérer les données avec un intervalle quotidien explicite
         data = yf.download(ticker_symbol, start=start_date_input, end=end_date_input, interval="1d")
 
         if data.empty:
@@ -184,7 +249,7 @@ def display_asset_data(assets, tab_key):
         else:
             # S'assurer que les données ne sont pas vides
             if not data.empty and len(data) > 0:
-                # Extraction explicite des valeurs scalaires individuelles
+                # Extraction des valeurs pour les indicateurs clés
                 latest_close_value = float(data['Close'].iloc[-1])
                 first_close_value = float(data['Close'].iloc[0])
                 variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
@@ -192,7 +257,6 @@ def display_asset_data(assets, tab_key):
 
                 # Affichage des indicateurs clés
                 st.subheader("Indicateurs clés")
-
                 metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
                 with metrics_col1:
@@ -215,14 +279,18 @@ def display_asset_data(assets, tab_key):
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
 
-                # Affichage du graphique simple
+                # Affichage du graphique simplifié
                 st.subheader("Graphique")
 
-                # Créer le graphique en ligne simple
-                simple_chart = create_simple_chart(data, selected_asset)
+                # Créer le graphique en bougies simplifié (style image)
+                simple_chart = create_simple_candlestick_chart(data, selected_asset)
 
                 # Afficher le graphique
-                st.plotly_chart(simple_chart, use_container_width=True)
+                st.plotly_chart(simple_chart, use_container_width=True, config={
+                    'displayModeBar': False,  # Masquer la barre de mode
+                    'staticPlot': False,  # Désactiver toutes les interactions sauf le survol
+                    'scrollZoom': False  # Désactiver le zoom par défilement
+                })
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -287,7 +355,6 @@ def display_asset_data(assets, tab_key):
     except Exception as e:
         st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
         import traceback
-
         st.error(f"Traceback détaillé: {traceback.format_exc()}")
 
 
