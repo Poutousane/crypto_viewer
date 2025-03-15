@@ -3,6 +3,8 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 import numpy as np
+import io
+from openpyxl import Workbook
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -43,6 +45,17 @@ other_assets = {
 
 # Création des onglets principaux pour types d'actifs
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
+
+
+# Fonction pour créer un Excel
+def create_excel(data, sheet_name="Data"):
+    output = io.BytesIO()
+    writer = pd.ExcelWriter(output, engine='openpyxl')
+    data.to_excel(writer, sheet_name=sheet_name)
+    writer.close()
+    processed_data = output.getvalue()
+    return processed_data
+
 
 # Fonction pour afficher les données pour un type d'actif
 def display_asset_data(assets, tab_key):
@@ -104,8 +117,9 @@ def display_asset_data(assets, tab_key):
             # Calculer la variation quotidienne
             data['Daily_Change'] = data['Close'].pct_change() * 100
 
-            # Créer un nouveau DataFrame pour les données formatées
-            display_data = pd.DataFrame(index=data.index)
+            # Créer un DataFrame pour l'affichage avec l'index recréé sans l'heure
+            display_data = pd.DataFrame(index=[d.date() for d in data.index])
+
             # Convertir les valeurs numpy en valeurs Python natives
             open_values = [float(x) for x in data['Open'].to_numpy()]
             high_values = [float(x) for x in data['High'].to_numpy()]
@@ -144,13 +158,19 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Option de téléchargement (données originales)
-            csv = data.to_csv()
+            # Préparer les données pour l'export en XLSX (sans la colonne Daily_Change)
+            export_data = data.drop('Daily_Change', axis=1, errors='ignore').copy()
+            # Pour conserver l'index de date sans l'heure, on peut aussi l'appliquer ici
+            export_data.index = [d.date() for d in export_data.index]
+
+            # Créer un excel avec les données
+            excel_data = create_excel(export_data, f"{selected_asset}")
+
             st.download_button(
-                label="Télécharger les données (CSV)",
-                data=csv,
-                file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.csv',
-                mime='text/csv',
+                label="Télécharger les données (XLSX)",
+                data=excel_data,
+                file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 key=f"download_{tab_key}"
             )
 
@@ -159,6 +179,7 @@ def display_asset_data(assets, tab_key):
         import traceback
 
         st.error(f"Traceback détaillé: {traceback.format_exc()}")
+
 
 # Affichage des données selon l'onglet sélectionné
 with tab1:
