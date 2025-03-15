@@ -2,7 +2,3 @@ streamlit
 pandas
 yfinance
 numpy
-matplotlib
-openpyxl
-mplfinance
-python-dateutil
