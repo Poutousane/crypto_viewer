@@ -50,65 +50,73 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un graphique en bougies (candlestick) avec vérification des données
-def create_candlestick_chart(data, asset_name):
+# Fonction pour créer un graphique en ligne simple (courbe) avec les prix de clôture
+def create_simple_line_chart(data, asset_name):
     # Vérifier si les données sont valides et non vides
     if data.empty or len(data) <= 1:
         # Créer un graphique vide avec un message
         fig = go.Figure()
         fig.add_annotation(
-            text="Données insuffisantes pour afficher les bougies",
+            text="Données insuffisantes pour afficher le graphique",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False
         )
-        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
+        fig.update_layout(height=500, template="plotly_dark")
         return fig
 
     # S'assurer que les données sont complètes et valides
-    valid_data = data[['Open', 'High', 'Low', 'Close']].dropna()
+    valid_data = data['Close'].dropna()
 
     if len(valid_data) <= 1:
         # Créer un graphique vide avec un message
         fig = go.Figure()
         fig.add_annotation(
-            text="Données insuffisantes après nettoyage pour afficher les bougies",
+            text="Données insuffisantes après nettoyage pour afficher le graphique",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False
         )
-        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
+        fig.update_layout(height=500, template="plotly_dark")
         return fig
 
-    # Créer la figure
+    # Créer la figure avec une courbe simple
     fig = go.Figure()
 
-    # Ajouter les bougies
-    fig.add_trace(go.Candlestick(
+    # Ajouter la trace de ligne (courbe)
+    fig.add_trace(go.Scatter(
         x=valid_data.index,
-        open=valid_data['Open'],
-        high=valid_data['High'],
-        low=valid_data['Low'],
-        close=valid_data['Close'],
-        increasing_line_color='green',
-        decreasing_line_color='red',
-        name='Prix'
+        y=valid_data,
+        mode='lines',
+        name='Prix de clôture',
+        line=dict(color='#61dafb', width=2)
     ))
 
     # Mettre à jour la mise en page
     fig.update_layout(
-        title=f'Graphique en bougies (day) - {asset_name}',
+        title=f'Évolution du prix de clôture - {asset_name}',
         yaxis_title='Prix',
-        xaxis_rangeslider_visible=False,
+        xaxis_title='Date',
         height=500,
         margin=dict(l=50, r=50, t=80, b=50),
-        template="plotly_dark"
+        template="plotly_dark",
+        hovermode='x unified',
+        showlegend=False
     )
 
-    # S'assurer que l'échelle y est appropriée
-    price_range = valid_data['High'].max() - valid_data['Low'].min()
-    padding = price_range * 0.1  # Ajouter 10% d'espace en haut et en bas
+    # Configurer les axes
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor='rgba(80, 80, 80, 0.2)'
+    )
 
     fig.update_yaxes(
-        range=[valid_data['Low'].min() - padding, valid_data['High'].max() + padding]
+        showgrid=True,
+        gridcolor='rgba(80, 80, 80, 0.2)'
+    )
+
+    # Désactiver les interactions pour rendre le graphique plus statique
+    fig.update_layout(
+        dragmode=False,
+        xaxis_rangeslider_visible=False
     )
 
     return fig
@@ -227,14 +235,15 @@ def display_asset_data(assets, tab_key):
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
 
-                # Affichage du graphique en bougies
+                # Affichage du graphique en courbe
                 st.subheader("Graphique")
 
-                # Créer le graphique en bougies avec le nom de l'actif
-                candlestick_fig = create_candlestick_chart(data, selected_asset)
+                # Créer le graphique en courbe simple avec le nom de l'actif
+                line_fig = create_simple_line_chart(data, selected_asset)
 
                 # Afficher le graphique
-                st.plotly_chart(candlestick_fig, use_container_width=True)
+                st.plotly_chart(line_fig, use_container_width=True,
+                                config={'displayModeBar': False, 'staticPlot': True})
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -299,7 +308,6 @@ def display_asset_data(assets, tab_key):
     except Exception as e:
         st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
         import traceback
-
         st.error(f"Traceback détaillé: {traceback.format_exc()}")
 
 
