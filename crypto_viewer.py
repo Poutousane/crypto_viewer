@@ -6,6 +6,7 @@ import numpy as np
 import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import numbers
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -48,7 +49,7 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un Excel exactement comme l'image avec les colonnes inversées
+# Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
 def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
 
@@ -85,8 +86,14 @@ def create_excel(data, sheet_name="Data"):
 
         # Ajouter les autres colonnes
         for col_idx, value in enumerate(row_data, start=2):
-            # Pas de formatage spécial pour le volume, juste utiliser la valeur brute
-            ws.cell(row=row_idx, column=col_idx, value=value)
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+
+            # Pour la colonne Variation (%), appliquer le format pourcentage
+            if col_idx == 6:  # 6 est l'index pour Variation (%)
+                # Convertir la valeur en décimal pour le format pourcentage Excel
+                if pd.notna(value):
+                    cell.value = value / 100  # Convertir en décimal pour Excel
+                    cell.number_format = '0.00%'  # Format pourcentage avec 2 décimales
 
     # Ajuster la largeur des colonnes
     for col in range(1, len(headers) + 1):
@@ -199,7 +206,7 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Créer un excel avec les colonnes inversées et sans formatage du volume
+            # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
             excel_data = create_excel(data, selected_asset)
 
             st.download_button(
