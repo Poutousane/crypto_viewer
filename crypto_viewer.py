@@ -6,6 +6,7 @@ import numpy as np
 import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from openpyxl.styles import Font, Alignment, Border, Side
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -48,71 +49,66 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un Excel exactement comme dans l'image
-def create_excel(data, sheet_name="Data", ticker_symbol=None):
+# Fonction pour créer un Excel exactement comme l'image
+def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
 
-    # Créer un workbook openpyxl directement pour un contrôle total
-    wb = Workbook()
-    ws = wb.active
+    # Formater les données pour l'export
+    export_data = data.copy()
+
+    # Calculer la variation quotidienne
+    export_data['Variation (%)'] = export_data['Close'].pct_change() * 100
+
+    # Convertir les indices en dates au format YYYY-MM-DD
+    export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
+    export_data.index.name = 'Date'
+
+    # Réorganiser les colonnes pour correspondre à l'image
+    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']]
+
+    # Renommer les colonnes
+    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']
+
+    # Créer et configurer manuellement le fichier Excel pour qu'il corresponde exactement à l'image
+    workbook = Workbook()
+    ws = workbook.active
     ws.title = sheet_name
 
-    # Définir les en-têtes des colonnes (ligne 3)
-    headers = ['Date', 'Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']
-
-    # Ajouter les en-têtes à la ligne 3
+    # Ajouter la ligne d'en-tête
+    headers = ['Date'] + list(export_data.columns)
     for col_idx, header in enumerate(headers, start=1):
-        ws.cell(row=3, column=col_idx, value=header)
-
-    # Calculer la variation pour chaque jour
-    data['Variation (%)'] = data['Close'].pct_change() * 100
-
-    # Formater les données pour chaque ligne
-    for row_idx, (date, row_data) in enumerate(data.iterrows(), start=4):
-        # Colonne Date
-        ws.cell(row=row_idx, column=1, value=date.strftime('%Y-%m-%d'))
-
-        # Prix de clôture (Price)
-        ws.cell(row=row_idx, column=2, value=float(row_data['Close']))
-
-        # High
-        ws.cell(row=row_idx, column=3, value=float(row_data['High']))
-
-        # Low
-        ws.cell(row=row_idx, column=4, value=float(row_data['Low']))
-
-        # Open
-        ws.cell(row=row_idx, column=5, value=float(row_data['Open']))
-
-        # Volume - Formater en notation scientifique si nécessaire
-        volume = float(row_data['Volume'])
-        if volume >= 1e10:
-            formatted_volume = f"{volume / 1e10:.2f}E+10"
-        elif volume >= 1e9:
-            formatted_volume = f"{volume / 1e9:.2f}E+09"
-        else:
-            formatted_volume = str(volume)
-        ws.cell(row=row_idx, column=6, value=volume)
-
-        # Variation
-        variation = row_data['Variation (%)']
-        if not pd.isna(variation):
-            ws.cell(row=row_idx, column=7, value=float(variation))
-
-    # Ajouter la ligne 1 (en-tête)
-    for col_idx, header in enumerate(['', 'Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)'], start=1):
         ws.cell(row=1, column=col_idx, value=header)
 
-    # Ajouter la ligne 2 (ticker)
-    if ticker_symbol:
-        for col_idx in range(2, 7):  # Colonnes B à F
-            ws.cell(row=2, column=col_idx, value=ticker_symbol)
+    # Ajouter les données
+    for row_idx, (date_idx, row_data) in enumerate(export_data.iterrows(), start=2):
+        # Ajouter la date
+        ws.cell(row=row_idx, column=1, value=date_idx)
 
-        ws.cell(row=2, column=1, value="Ticker")  # Colonne A avec 'Ticker'
+        # Ajouter les autres colonnes
+        for col_idx, value in enumerate(row_data, start=2):
+            # Formater les valeurs numériques
+            if col_idx == 6:  # Volume
+                if isinstance(value, (int, float)) and value >= 1e10:
+                    formatted_value = f"{value / 1e10:.2f}E+10"
+                elif isinstance(value, (int, float)) and value >= 1e9:
+                    formatted_value = f"{value / 1e9:.2f}E+9"
+                else:
+                    formatted_value = value
+                ws.cell(row=row_idx, column=col_idx, value=formatted_value)
+            elif col_idx == 7:  # Variation (%)
+                if isinstance(value, (int, float)):
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+                else:
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+            else:
+                ws.cell(row=row_idx, column=col_idx, value=value)
 
-    # Sauvegarder le workbook dans le BytesIO
-    wb.save(output)
+    # Ajuster la largeur des colonnes
+    for col in range(1, len(headers) + 1):
+        column_letter = get_column_letter(col)
+        ws.column_dimensions[column_letter].width = 15
 
+    workbook.save(output)
     processed_data = output.getvalue()
     return processed_data
 
@@ -218,8 +214,8 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Créer un excel avec les données, formaté exactement comme dans l'image
-            excel_data = create_excel(data, f"{selected_asset}", ticker_symbol)
+            # Créer un excel avec les données formatées comme dans l'image
+            excel_data = create_excel(data, selected_asset)
 
             st.download_button(
                 label="Télécharger les données (XLSX)",
