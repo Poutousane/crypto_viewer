@@ -23,7 +23,9 @@ crypto_assets = {
     "Polkadot": "DOT-USD"
 }
 
+# Liste étendue des actions
 stock_assets = {
+    # Tech
     "Apple": "AAPL",
     "Microsoft": "MSFT",
     "Google": "GOOGL",
@@ -31,7 +33,66 @@ stock_assets = {
     "Tesla": "TSLA",
     "Meta": "META",
     "NVIDIA": "NVDA",
-    "JPMorgan Chase": "JPM"
+    "Adobe": "ADBE",
+    "Intel": "INTC",
+    "IBM": "IBM",
+    "Cisco": "CSCO",
+    "Oracle": "ORCL",
+    "Salesforce": "CRM",
+    "AMD": "AMD",
+    "PayPal": "PYPL",
+
+    # Banques & Finance
+    "JPMorgan Chase": "JPM",
+    "Bank of America": "BAC",
+    "Wells Fargo": "WFC",
+    "Goldman Sachs": "GS",
+    "Morgan Stanley": "MS",
+    "Visa": "V",
+    "Mastercard": "MA",
+    "American Express": "AXP",
+
+    # Consommation
+    "Walmart": "WMT",
+    "Coca-Cola": "KO",
+    "PepsiCo": "PEP",
+    "McDonald's": "MCD",
+    "Nike": "NKE",
+    "Disney": "DIS",
+    "Home Depot": "HD",
+    "Starbucks": "SBUX",
+    "Procter & Gamble": "PG",
+    "Netflix": "NFLX",
+
+    # Santé & Pharmacie
+    "Johnson & Johnson": "JNJ",
+    "Pfizer": "PFE",
+    "Merck": "MRK",
+    "UnitedHealth": "UNH",
+    "Abbott Labs": "ABT",
+    "Eli Lilly": "LLY",
+    "Amgen": "AMGN",
+    "Bristol-Myers Squibb": "BMY",
+
+    # Énergie
+    "Exxon Mobil": "XOM",
+    "Chevron": "CVX",
+    "ConocoPhillips": "COP",
+    "Shell": "SHEL",
+    "BP": "BP",
+
+    # Automobile
+    "Ford": "F",
+    "General Motors": "GM",
+    "Toyota": "TM",
+    "Honda": "HMC",
+    "Volkswagen": "VWAGY",
+
+    # Télécommunications
+    "AT&T": "T",
+    "Verizon": "VZ",
+    "T-Mobile": "TMUS",
+    "Comcast": "CMCSA"
 }
 
 # Division des autres actifs en catégories
@@ -65,7 +126,13 @@ index_assets = {
     "CAC 40": "^FCHI",
     "DAX": "^GDAXI",
     "FTSE 100": "^FTSE",
-    "Nikkei 225": "^N225"
+    "Nikkei 225": "^N225",
+    "Hang Seng": "^HSI",
+    "ASX 200": "^AXJO",
+    "IBEX 35": "^IBEX",
+    "FTSE MIB": "FTSEMIB.MI",
+    "KOSPI": "^KS11",
+    "TSX Composite": "^GSPTSE"
 }
 
 # Création des onglets principaux pour types d'actifs
@@ -242,60 +309,6 @@ def display_asset_data(assets, tab_key):
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     key=f"download_{tab_key}"
                 )
-
-                # Afficher les composantes pour les indices principaux
-                if tab_key == "index" and selected_asset in ["S&P 500", "NASDAQ Composite", "Dow Jones"]:
-                    st.subheader(f"Composantes principales du {selected_asset}")
-
-                    # Données fictives pour la démonstration - à remplacer par des données réelles
-                    if selected_asset == "S&P 500":
-                        components = {
-                            "Apple (AAPL)": "5.83%",
-                            "Microsoft (MSFT)": "5.37%",
-                            "Amazon (AMZN)": "3.10%",
-                            "NVIDIA (NVDA)": "2.85%",
-                            "Alphabet Class A (GOOGL)": "1.78%",
-                            "Alphabet Class C (GOOG)": "1.57%",
-                            "Meta (META)": "1.57%",
-                            "Tesla (TSLA)": "1.43%",
-                            "Berkshire Hathaway (BRK.B)": "1.40%",
-                            "UnitedHealth (UNH)": "1.26%"
-                        }
-                    elif selected_asset == "NASDAQ Composite":
-                        components = {
-                            "Apple (AAPL)": "10.91%",
-                            "Microsoft (MSFT)": "9.94%",
-                            "Amazon (AMZN)": "5.75%",
-                            "NVIDIA (NVDA)": "5.28%",
-                            "Alphabet Class A (GOOGL)": "3.29%",
-                            "Alphabet Class C (GOOG)": "2.91%",
-                            "Meta (META)": "2.90%",
-                            "Tesla (TSLA)": "2.66%",
-                            "Broadcom (AVGO)": "1.84%",
-                            "Costco (COST)": "1.26%"
-                        }
-                    elif selected_asset == "Dow Jones":
-                        components = {
-                            "UnitedHealth (UNH)": "8.27%",
-                            "Goldman Sachs (GS)": "6.75%",
-                            "Home Depot (HD)": "6.10%",
-                            "Microsoft (MSFT)": "5.73%",
-                            "McDonald's (MCD)": "5.00%",
-                            "Amgen (AMGN)": "4.92%",
-                            "Visa (V)": "4.59%",
-                            "Caterpillar (CAT)": "4.12%",
-                            "Salesforce (CRM)": "3.90%",
-                            "Boeing (BA)": "3.51%"
-                        }
-
-                    # Afficher un tableau des composantes
-                    comp_df = pd.DataFrame(
-                        {"Pondération": list(components.values())},
-                        index=list(components.keys())
-                    )
-                    st.table(comp_df)
-
-                    st.caption("Note: Les pondérations sont approximatives et peuvent varier au fil du temps.")
             else:
                 st.error(f"Aucune donnée n'a été récupérée pour {selected_asset}.")
 
