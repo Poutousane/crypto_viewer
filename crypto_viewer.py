@@ -48,10 +48,40 @@ tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
 # Fonction pour créer un Excel
-def create_excel(data, sheet_name="Data"):
+def create_excel(data, sheet_name="Data", ticker_info=None):
     output = io.BytesIO()
     writer = pd.ExcelWriter(output, engine='openpyxl')
-    data.to_excel(writer, sheet_name=sheet_name)
+
+    # Formater les données pour l'export
+    export_data = data.copy()
+
+    # Calculer la variation
+    export_data['Variation (%)'] = export_data['Close'].pct_change() * 100
+
+    # Réorganiser les colonnes comme dans l'image
+    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']]
+
+    # Renommer les colonnes
+    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']
+
+    # Formater l'index comme dates au format YYYY-MM-DD
+    export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
+    export_data.index.name = 'Date'
+
+    # Si ticker_info est fourni, ajouter une seconde ligne avec le symbole
+    if ticker_info:
+        # Créer une ligne de headers pour le symbole
+        symbol_headers = pd.DataFrame([[ticker_info] * 5 + ['']],
+                                      columns=export_data.columns,
+                                      index=['Ticker'])
+
+        # Ajouter cette ligne comme une seconde ligne d'en-tête dans Excel
+        symbol_headers.to_excel(writer, sheet_name=sheet_name, startrow=0)
+        export_data.to_excel(writer, sheet_name=sheet_name, startrow=2)
+    else:
+        # Export normal sans ligne supplémentaire
+        export_data.to_excel(writer, sheet_name=sheet_name, index=True)
+
     writer.close()
     processed_data = output.getvalue()
     return processed_data
@@ -158,13 +188,8 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Préparer les données pour l'export en XLSX (sans la colonne Daily_Change)
-            export_data = data.drop('Daily_Change', axis=1, errors='ignore').copy()
-            # Pour conserver l'index de date sans l'heure, on peut aussi l'appliquer ici
-            export_data.index = [d.date() for d in export_data.index]
-
-            # Créer un excel avec les données
-            excel_data = create_excel(export_data, f"{selected_asset}")
+            # Créer un excel avec les données formatées comme dans l'image
+            excel_data = create_excel(data, f"{selected_asset}", ticker_symbol)
 
             st.download_button(
                 label="Télécharger les données (XLSX)",
