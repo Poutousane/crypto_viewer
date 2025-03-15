@@ -178,10 +178,10 @@ for country, indices in index_categories.items():
         index_assets[name] = ticker
 
 
-# Fonction pour nettoyer les noms de fichiers
-def clean_filename(filename):
-    # Remplacer les caractères spéciaux par des caractères sûrs
-    clean_name = re.sub(r'[\\/*?:"<>|=]', '_', filename)
+# Fonction pour nettoyer les noms de fichiers et les titres de feuilles Excel
+def clean_text(text):
+    # Remplacer les caractères spéciaux problématiques
+    clean_name = re.sub(r'[\\/*?:"<>|=]', '_', str(text))
     return clean_name
 
 
@@ -205,10 +205,16 @@ def create_excel(data, sheet_name="Data"):
     # Renommer les colonnes
     export_data.columns = ['Price', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']
 
+    # Nettoyer le nom de la feuille
+    clean_sheet_name = clean_text(sheet_name)
+    # Limiter la longueur à 31 caractères (limite Excel)
+    if len(clean_sheet_name) > 31:
+        clean_sheet_name = clean_sheet_name[:31]
+
     # Créer et configurer manuellement le fichier Excel
     workbook = Workbook()
     ws = workbook.active
-    ws.title = sheet_name
+    ws.title = clean_sheet_name
 
     # Ajouter la ligne d'en-tête
     headers = ['Date'] + list(export_data.columns)
@@ -349,12 +355,12 @@ def display_standard_asset_data(assets, tab_key):
                 st.dataframe(display_data)
 
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
-                excel_data = create_excel(data, selected_asset)
+                excel_data = create_excel(data, clean_text(selected_asset))
 
                 # Nettoyer le nom du fichier
-                clean_name = clean_filename(selected_asset)
-                clean_start = str(start_date_input)
-                clean_end = str(end_date_input)
+                clean_name = clean_text(selected_asset)
+                clean_start = clean_text(start_date_input)
+                clean_end = clean_text(end_date_input)
 
                 st.download_button(
                     label="Télécharger les données (XLSX)",
@@ -497,12 +503,12 @@ def display_stock_data():
                 st.dataframe(display_data)
 
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
-                excel_data = create_excel(data, selected_asset)
+                excel_data = create_excel(data, clean_text(selected_asset))
 
                 # Nettoyer le nom du fichier
-                clean_name = clean_filename(selected_asset)
-                clean_start = str(start_date_input)
-                clean_end = str(end_date_input)
+                clean_name = clean_text(selected_asset)
+                clean_start = clean_text(start_date_input)
+                clean_end = clean_text(end_date_input)
 
                 st.download_button(
                     label="Télécharger les données (XLSX)",
@@ -644,12 +650,12 @@ def display_indices_data():
                 st.dataframe(display_data)
 
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
-                excel_data = create_excel(data, selected_asset)
+                excel_data = create_excel(data, clean_text(selected_asset))
 
                 # Nettoyer le nom du fichier
-                clean_name = clean_filename(selected_asset)
-                clean_start = str(start_date_input)
-                clean_end = str(end_date_input)
+                clean_name = clean_text(selected_asset)
+                clean_start = clean_text(start_date_input)
+                clean_end = clean_text(end_date_input)
 
                 st.download_button(
                     label="Télécharger les données (XLSX)",
