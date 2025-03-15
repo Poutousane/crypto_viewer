@@ -50,65 +50,53 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un graphique en bougies (candlestick) avec vérification des données
-def create_candlestick_chart(data, asset_name):
+# Fonction pour créer un graphique en ligne simple
+def create_simple_chart(data, asset_name):
     # Vérifier si les données sont valides et non vides
     if data.empty or len(data) <= 1:
         # Créer un graphique vide avec un message
         fig = go.Figure()
         fig.add_annotation(
-            text="Données insuffisantes pour afficher les bougies",
+            text="Données insuffisantes pour afficher le graphique",
             xref="paper", yref="paper",
             x=0.5, y=0.5, showarrow=False
         )
-        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
-        return fig
-
-    # S'assurer que les données sont complètes et valides
-    valid_data = data[['Open', 'High', 'Low', 'Close']].dropna()
-
-    if len(valid_data) <= 1:
-        # Créer un graphique vide avec un message
-        fig = go.Figure()
-        fig.add_annotation(
-            text="Données insuffisantes après nettoyage pour afficher les bougies",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
-        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
+        fig.update_layout(title='Graphique en ligne (day)', height=400, template="plotly_dark")
         return fig
 
     # Créer la figure
     fig = go.Figure()
 
-    # Ajouter les bougies
-    fig.add_trace(go.Candlestick(
-        x=valid_data.index,
-        open=valid_data['Open'],
-        high=valid_data['High'],
-        low=valid_data['Low'],
-        close=valid_data['Close'],
-        increasing_line_color='green',
-        decreasing_line_color='red',
-        name='Prix'
+    # Ajouter la ligne de prix de clôture
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Close'],
+        mode='lines',
+        name='Prix de clôture',
+        line=dict(color='#00BFFF', width=2)
     ))
 
     # Mettre à jour la mise en page
     fig.update_layout(
-        title=f'Graphique en bougies (day) - {asset_name}',
+        title=f'Prix journalier - {asset_name}',
         yaxis_title='Prix',
-        xaxis_rangeslider_visible=False,
-        height=500,
-        margin=dict(l=50, r=50, t=80, b=50),
-        template="plotly_dark"
+        xaxis_title='Date',
+        height=400,
+        margin=dict(l=40, r=40, t=60, b=40),
+        template="plotly_dark",
+        hovermode="x unified"
     )
 
-    # S'assurer que l'échelle y est appropriée
-    price_range = valid_data['High'].max() - valid_data['Low'].min()
-    padding = price_range * 0.1  # Ajouter 10% d'espace en haut et en bas
-
-    fig.update_yaxes(
-        range=[valid_data['Low'].min() - padding, valid_data['High'].max() + padding]
+    # Enlever les outils de zoom et autres interactions complexes
+    fig.update_layout(
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(211, 211, 211, 0.2)'
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(211, 211, 211, 0.2)'
+        ),
     )
 
     return fig
@@ -227,14 +215,14 @@ def display_asset_data(assets, tab_key):
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
 
-                # Affichage du graphique en bougies
+                # Affichage du graphique simple
                 st.subheader("Graphique")
 
-                # Créer le graphique en bougies avec le nom de l'actif
-                candlestick_fig = create_candlestick_chart(data, selected_asset)
+                # Créer le graphique en ligne simple
+                simple_chart = create_simple_chart(data, selected_asset)
 
                 # Afficher le graphique
-                st.plotly_chart(candlestick_fig, use_container_width=True)
+                st.plotly_chart(simple_chart, use_container_width=True)
 
                 # Tableau des données
                 st.subheader("Données historiques")
