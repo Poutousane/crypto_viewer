@@ -4,5 +4,3 @@ yfinance
 numpy
 openpyxl
 plotly
-requests
-dash
