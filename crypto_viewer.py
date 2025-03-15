@@ -50,18 +50,44 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un graphique en bougies (candlestick) simplifié
-def create_candlestick_chart(data):
+# Fonction pour créer un graphique en bougies (candlestick) avec vérification des données
+def create_candlestick_chart(data, asset_name):
+    # Vérifier si les données sont valides et non vides
+    if data.empty or len(data) <= 1:
+        # Créer un graphique vide avec un message
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Données insuffisantes pour afficher les bougies",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
+        return fig
+
+    # S'assurer que les données sont complètes et valides
+    valid_data = data[['Open', 'High', 'Low', 'Close']].dropna()
+
+    if len(valid_data) <= 1:
+        # Créer un graphique vide avec un message
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Données insuffisantes après nettoyage pour afficher les bougies",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        fig.update_layout(title='Graphique en bougies (day)', height=500, template="plotly_dark")
+        return fig
+
     # Créer la figure
     fig = go.Figure()
 
     # Ajouter les bougies
     fig.add_trace(go.Candlestick(
-        x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
+        x=valid_data.index,
+        open=valid_data['Open'],
+        high=valid_data['High'],
+        low=valid_data['Low'],
+        close=valid_data['Close'],
         increasing_line_color='green',
         decreasing_line_color='red',
         name='Prix'
@@ -69,12 +95,20 @@ def create_candlestick_chart(data):
 
     # Mettre à jour la mise en page
     fig.update_layout(
-        title='Graphique en bougies (day)',
+        title=f'Graphique en bougies (day) - {asset_name}',
         yaxis_title='Prix',
         xaxis_rangeslider_visible=False,
         height=500,
         margin=dict(l=50, r=50, t=80, b=50),
-        template="plotly_dark"  # Utilise un thème sombre comme dans l'image
+        template="plotly_dark"
+    )
+
+    # S'assurer que l'échelle y est appropriée
+    price_range = valid_data['High'].max() - valid_data['Low'].min()
+    padding = price_range * 0.1  # Ajouter 10% d'espace en haut et en bas
+
+    fig.update_yaxes(
+        range=[valid_data['Low'].min() - padding, valid_data['High'].max() + padding]
     )
 
     return fig
@@ -154,7 +188,8 @@ def display_asset_data(assets, tab_key):
     # Récupération des données
     ticker_symbol = assets[selected_asset]
     try:
-        data = yf.download(ticker_symbol, start=start_date_input, end=end_date_input)
+        # Récupérer les données avec un intervalle quotidien explicite
+        data = yf.download(ticker_symbol, start=start_date_input, end=end_date_input, interval="1d")
 
         if data.empty:
             st.error(f"Aucune donnée disponible pour {selected_asset} dans la période sélectionnée.")
@@ -192,11 +227,11 @@ def display_asset_data(assets, tab_key):
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
 
-                # Affichage du graphique en bougies (seulement en jour)
+                # Affichage du graphique en bougies
                 st.subheader("Graphique")
 
-                # Créer le graphique en bougies
-                candlestick_fig = create_candlestick_chart(data)
+                # Créer le graphique en bougies avec le nom de l'actif
+                candlestick_fig = create_candlestick_chart(data, selected_asset)
 
                 # Afficher le graphique
                 st.plotly_chart(candlestick_fig, use_container_width=True)
