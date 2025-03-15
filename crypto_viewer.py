@@ -4,11 +4,11 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import numpy as np
 import io
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import numbers
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -49,6 +49,64 @@ other_assets = {
 
 # Création des onglets principaux pour types d'actifs
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
+
+
+# Fonction pour créer un graphique en bougies (candlestick)
+def create_candlestick_chart(data, timeframe='day'):
+    # Rééchantillonnage des données si on veut voir par mois
+    if timeframe == 'month':
+        # Resample pour obtenir des données mensuelles
+        data_resampled = data.resample('M').agg({
+            'Open': 'first',
+            'High': 'max',
+            'Low': 'min',
+            'Close': 'last',
+            'Volume': 'sum'
+        })
+        chart_data = data_resampled
+    else:
+        chart_data = data
+
+    # Créer la figure
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        vertical_spacing=0.03,
+                        subplot_titles=('Prix', 'Volume'),
+                        row_heights=[0.8, 0.2])
+
+    # Ajouter les bougies
+    fig.add_trace(go.Candlestick(
+        x=chart_data.index,
+        open=chart_data['Open'],
+        high=chart_data['High'],
+        low=chart_data['Low'],
+        close=chart_data['Close'],
+        increasing_line_color='green',
+        decreasing_line_color='red',
+        name='Prix'
+    ), row=1, col=1)
+
+    # Ajouter le volume
+    colors = ['red' if close < open else 'green' for open, close in zip(chart_data['Open'], chart_data['Close'])]
+
+    fig.add_trace(go.Bar(
+        x=chart_data.index,
+        y=chart_data['Volume'],
+        marker_color=colors,
+        name='Volume'
+    ), row=2, col=1)
+
+    # Mettre à jour la mise en page
+    fig.update_layout(
+        title=f'Graphique en bougies ({timeframe})',
+        yaxis_title='Prix',
+        xaxis_rangeslider_visible=False,
+        height=600,
+        margin=dict(l=50, r=50, t=80, b=50)
+    )
+
+    fig.update_yaxes(title_text='Volume', row=2, col=1)
+
+    return fig
 
 
 # Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
@@ -107,69 +165,6 @@ def create_excel(data, sheet_name="Data"):
     return processed_data
 
 
-# Fonction pour créer un graphique en fonction de la périodicité (jour ou mois)
-def create_chart(data, asset_name, periodicity):
-    # Créer une figure avec des sous-graphiques (prix + volume)
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        vertical_spacing=0.1,
-                        subplot_titles=(f'Prix de {asset_name}', 'Volume'),
-                        row_heights=[0.7, 0.3])
-
-    # Préparer les données selon la périodicité
-    if periodicity == 'Jour':
-        chart_data = data
-    else:  # 'Mois'
-        # Rééchantilloner les données par mois
-        monthly_data = data.resample('M').agg({
-            'Open': 'first',
-            'High': 'max',
-            'Low': 'min',
-            'Close': 'last',
-            'Volume': 'sum'
-        })
-        chart_data = monthly_data
-
-    # Ajouter le graphique en chandelier pour les prix
-    fig.add_trace(
-        go.Candlestick(
-            x=chart_data.index,
-            open=chart_data['Open'],
-            high=chart_data['High'],
-            low=chart_data['Low'],
-            close=chart_data['Close'],
-            name='Prix'
-        ),
-        row=1, col=1
-    )
-
-    # Ajouter le graphique de volume
-    fig.add_trace(
-        go.Bar(
-            x=chart_data.index,
-            y=chart_data['Volume'],
-            name='Volume',
-            marker_color='rgba(0, 128, 255, 0.7)'
-        ),
-        row=2, col=1
-    )
-
-    # Mise en forme du graphique
-    fig.update_layout(
-        title=f'{asset_name} - Données financières ({periodicity})',
-        xaxis_title='Date',
-        height=600,
-        margin=dict(l=50, r=50, t=80, b=50),
-        xaxis_rangeslider_visible=False,
-        showlegend=False
-    )
-
-    # Personnalisation des axes Y
-    fig.update_yaxes(title_text='Prix', row=1, col=1)
-    fig.update_yaxes(title_text='Volume', row=2, col=1)
-
-    return fig
-
-
 # Fonction pour afficher les données pour un type d'actif
 def display_asset_data(assets, tab_key):
     col1, col2, col3 = st.columns(3)
@@ -184,14 +179,6 @@ def display_asset_data(assets, tab_key):
 
     with col3:
         end_date_input = st.date_input("Date de fin", value=end_date, key=f"end_{tab_key}")
-
-    # Choix de la périodicité pour le graphique (jour ou mois)
-    chart_periodicity = st.radio(
-        "Afficher le graphique par :",
-        ["Jour", "Mois"],
-        horizontal=True,
-        key=f"periodicity_{tab_key}"
-    )
 
     # Récupération des données
     ticker_symbol = assets[selected_asset]
@@ -232,10 +219,20 @@ def display_asset_data(assets, tab_key):
                     vol_str = f"{latest_volume_value:.2f}"
                 st.metric("Volume (dernier jour)", vol_str)
 
-            # Affichage du graphique
+            # Affichage du graphique en bougies
             st.subheader("Graphique")
-            fig = create_chart(data, selected_asset, chart_periodicity)
-            st.plotly_chart(fig, use_container_width=True)
+
+            # Sélecteur pour choisir l'intervalle de temps (jour ou mois)
+            timeframe = st.radio("Afficher par:", ["jour", "mois"], horizontal=True, key=f"timeframe_{tab_key}")
+
+            # Créer le graphique selon le timeframe sélectionné
+            if timeframe == "jour":
+                candlestick_fig = create_candlestick_chart(data, 'day')
+            else:
+                candlestick_fig = create_candlestick_chart(data, 'month')
+
+            # Afficher le graphique
+            st.plotly_chart(candlestick_fig, use_container_width=True)
 
             # Tableau des données
             st.subheader("Données historiques")
