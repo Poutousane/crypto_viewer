@@ -6,7 +6,6 @@ import numpy as np
 import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import Font, Alignment, Border, Side
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -49,7 +48,7 @@ other_assets = {
 tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
-# Fonction pour créer un Excel exactement comme l'image
+# Fonction pour créer un Excel exactement comme l'image avec les colonnes inversées
 def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
 
@@ -63,13 +62,13 @@ def create_excel(data, sheet_name="Data"):
     export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
     export_data.index.name = 'Date'
 
-    # Réorganiser les colonnes pour correspondre à l'image
-    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']]
+    # Réorganiser les colonnes avec Volume et Variation inversées
+    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']]
 
     # Renommer les colonnes
-    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']
+    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']
 
-    # Créer et configurer manuellement le fichier Excel pour qu'il corresponde exactement à l'image
+    # Créer et configurer manuellement le fichier Excel
     workbook = Workbook()
     ws = workbook.active
     ws.title = sheet_name
@@ -86,22 +85,8 @@ def create_excel(data, sheet_name="Data"):
 
         # Ajouter les autres colonnes
         for col_idx, value in enumerate(row_data, start=2):
-            # Formater les valeurs numériques
-            if col_idx == 6:  # Volume
-                if isinstance(value, (int, float)) and value >= 1e10:
-                    formatted_value = f"{value / 1e10:.2f}E+10"
-                elif isinstance(value, (int, float)) and value >= 1e9:
-                    formatted_value = f"{value / 1e9:.2f}E+9"
-                else:
-                    formatted_value = value
-                ws.cell(row=row_idx, column=col_idx, value=formatted_value)
-            elif col_idx == 7:  # Variation (%)
-                if isinstance(value, (int, float)):
-                    ws.cell(row=row_idx, column=col_idx, value=value)
-                else:
-                    ws.cell(row=row_idx, column=col_idx, value=value)
-            else:
-                ws.cell(row=row_idx, column=col_idx, value=value)
+            # Pas de formatage spécial pour le volume, juste utiliser la valeur brute
+            ws.cell(row=row_idx, column=col_idx, value=value)
 
     # Ajuster la largeur des colonnes
     for col in range(1, len(headers) + 1):
@@ -214,7 +199,7 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Créer un excel avec les données formatées comme dans l'image
+            # Créer un excel avec les colonnes inversées et sans formatage du volume
             excel_data = create_excel(data, selected_asset)
 
             st.download_button(
