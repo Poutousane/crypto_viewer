@@ -7,7 +7,6 @@ import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import numbers
-import plotly.graph_objects as go
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -35,152 +34,32 @@ stock_assets = {
     "JPMorgan Chase": "JPM"
 }
 
-other_assets = {
+# Division des autres actifs en deux catégories : Devises et Ressources
+currency_assets = {
+    "EUR/USD": "EURUSD=X",
+    "GBP/USD": "GBPUSD=X",
+    "USD/JPY": "USDJPY=X",
+    "USD/CAD": "USDCAD=X",
+    "AUD/USD": "AUDUSD=X",
+    "USD/CHF": "USDCHF=X",
+    "NZD/USD": "NZDUSD=X",
+    "EUR/GBP": "EURGBP=X"
+}
+
+resource_assets = {
     "Or": "GC=F",
     "Argent": "SI=F",
     "Pétrole brut": "CL=F",
     "Gaz naturel": "NG=F",
-    "EUR/USD": "EURUSD=X",
-    "GBP/USD": "GBPUSD=X",
+    "Cuivre": "HG=F",
+    "Blé": "ZW=F",
+    "Maïs": "ZC=F",
     "S&P 500": "^GSPC",
     "NASDAQ": "^IXIC"
 }
 
 # Création des onglets principaux pour types d'actifs
-tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
-
-
-# Fonction pour créer un graphique en ligne avec segments colorés selon les mouvements du marché
-def create_market_line_chart(data, asset_name):
-    # Vérifier si les données sont valides et non vides
-    if data.empty or len(data) <= 1:
-        # Créer un graphique vide avec un message
-        fig = go.Figure()
-        fig.add_annotation(
-            text="Données insuffisantes pour afficher le graphique",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(color="white")
-        )
-        fig.update_layout(
-            height=500,
-            template="plotly_dark",
-            plot_bgcolor="#0E1117",
-            paper_bgcolor="#0E1117"
-        )
-        return fig
-
-    # S'assurer que les données sont complètes
-    valid_data = data['Close'].dropna()
-
-    if len(valid_data) <= 1:
-        # Créer un graphique vide avec un message
-        fig = go.Figure()
-        fig.add_annotation(
-            text="Données insuffisantes après nettoyage pour afficher le graphique",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(color="white")
-        )
-        fig.update_layout(
-            height=500,
-            template="plotly_dark",
-            plot_bgcolor="#0E1117",
-            paper_bgcolor="#0E1117"
-        )
-        return fig
-
-    # Créer la figure
-    fig = go.Figure()
-
-    # Calculer les différences entre les jours consécutifs pour déterminer les couleurs
-    price_diff = valid_data.diff()
-
-    # Pour chaque segment, nous allons créer une trace séparée avec sa propre couleur
-    for i in range(1, len(valid_data)):
-        color = 'green' if price_diff.iloc[i] >= 0 else 'red'
-
-        # Ajouter un segment de ligne
-        fig.add_trace(go.Scatter(
-            x=[valid_data.index[i - 1], valid_data.index[i]],
-            y=[valid_data.iloc[i - 1], valid_data.iloc[i]],
-            mode='lines',
-            line=dict(color=color, width=1.5),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-
-    # Ajouter la trace principale pour l'info-bulle (mais invisible)
-    fig.add_trace(go.Scatter(
-        x=valid_data.index,
-        y=valid_data,
-        mode='lines',
-        line=dict(width=0),
-        showlegend=False,
-        hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br><b>Prix:</b> $%{y:.2f}<extra></extra>',
-        name='Prix'
-    ))
-
-    # Ajouter des lignes horizontales pointillées (comme dans l'image)
-    price_range = valid_data.max() - valid_data.min()
-    price_mid = valid_data.min() + price_range / 2
-
-    fig.add_shape(
-        type="line",
-        x0=valid_data.index[0],
-        x1=valid_data.index[-1],
-        y0=price_mid,
-        y1=price_mid,
-        line=dict(color="rgba(150, 150, 150, 0.3)", width=1, dash="dash"),
-    )
-
-    # Ajouter une ligne verticale au milieu (comme dans l'image)
-    mid_date_idx = len(valid_data) // 2
-    mid_date = valid_data.index[mid_date_idx]
-
-    fig.add_shape(
-        type="line",
-        x0=mid_date,
-        x1=mid_date,
-        y0=valid_data.min() - price_range * 0.05,
-        y1=valid_data.max() + price_range * 0.05,
-        line=dict(color="rgba(150, 150, 150, 0.3)", width=1, dash="dash"),
-    )
-
-    # Mettre à jour la mise en page
-    fig.update_layout(
-        title=None,
-        height=500,
-        margin=dict(l=0, r=0, t=10, b=0),
-        template="plotly_dark",
-        plot_bgcolor="#0E1117",
-        paper_bgcolor="#0E1117",
-        hovermode="x",
-        hoverlabel=dict(
-            bgcolor="rgba(0, 0, 0, 0.8)",
-            font_size=12,
-            font_family="Arial"
-        ),
-        xaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showticklabels=False
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showticklabels=False
-        )
-    )
-
-    # Désactiver les interactions pour rendre le graphique plus statique
-    fig.update_layout(
-        dragmode=False,
-        xaxis_rangeslider_visible=False
-    )
-
-    return fig
-
+tab1, tab2, tab3, tab4 = st.tabs(["Crypto", "Actions", "Devises", "Ressources"])
 
 # Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
 def create_excel(data, sheet_name="Data"):
@@ -236,7 +115,6 @@ def create_excel(data, sheet_name="Data"):
     workbook.save(output)
     processed_data = output.getvalue()
     return processed_data
-
 
 # Fonction pour afficher les données pour un type d'actif
 def display_asset_data(assets, tab_key):
@@ -294,15 +172,6 @@ def display_asset_data(assets, tab_key):
                     else:
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
-
-                # Affichage du graphique en courbe
-                st.subheader("Graphique")
-
-                # Créer le graphique de marché avec des segments colorés
-                line_fig = create_market_line_chart(data, selected_asset)
-
-                # Afficher le graphique
-                st.plotly_chart(line_fig, use_container_width=True, config={'displayModeBar': False})
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -369,7 +238,6 @@ def display_asset_data(assets, tab_key):
         import traceback
         st.error(f"Traceback détaillé: {traceback.format_exc()}")
 
-
 # Affichage des données selon l'onglet sélectionné
 with tab1:
     display_asset_data(crypto_assets, "crypto")
@@ -378,4 +246,7 @@ with tab2:
     display_asset_data(stock_assets, "stock")
 
 with tab3:
-    display_asset_data(other_assets, "other")
+    display_asset_data(currency_assets, "currency")
+
+with tab4:
+    display_asset_data(resource_assets, "resource")
