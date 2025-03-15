@@ -7,6 +7,7 @@ import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import numbers
+import re
 
 # Configuration de la page
 st.set_page_config(
@@ -177,6 +178,13 @@ for country, indices in index_categories.items():
         index_assets[name] = ticker
 
 
+# Fonction pour nettoyer les noms de fichiers
+def clean_filename(filename):
+    # Remplacer les caractères spéciaux par des caractères sûrs
+    clean_name = re.sub(r'[\\/*?:"<>|=]', '_', filename)
+    return clean_name
+
+
 # Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
 def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
@@ -343,10 +351,15 @@ def display_standard_asset_data(assets, tab_key):
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
                 excel_data = create_excel(data, selected_asset)
 
+                # Nettoyer le nom du fichier
+                clean_name = clean_filename(selected_asset)
+                clean_start = str(start_date_input)
+                clean_end = str(end_date_input)
+
                 st.download_button(
                     label="Télécharger les données (XLSX)",
                     data=excel_data,
-                    file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
+                    file_name=f"{clean_name}_{clean_start}_{clean_end}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     key=f"download_{tab_key}"
                 )
@@ -486,10 +499,15 @@ def display_stock_data():
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
                 excel_data = create_excel(data, selected_asset)
 
+                # Nettoyer le nom du fichier
+                clean_name = clean_filename(selected_asset)
+                clean_start = str(start_date_input)
+                clean_end = str(end_date_input)
+
                 st.download_button(
                     label="Télécharger les données (XLSX)",
                     data=excel_data,
-                    file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
+                    file_name=f"{clean_name}_{clean_start}_{clean_end}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             else:
@@ -628,10 +646,15 @@ def display_indices_data():
                 # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
                 excel_data = create_excel(data, selected_asset)
 
+                # Nettoyer le nom du fichier
+                clean_name = clean_filename(selected_asset)
+                clean_start = str(start_date_input)
+                clean_end = str(end_date_input)
+
                 st.download_button(
                     label="Télécharger les données (XLSX)",
                     data=excel_data,
-                    file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
+                    file_name=f"{clean_name}_{clean_start}_{clean_end}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     key="download_index"
                 )
