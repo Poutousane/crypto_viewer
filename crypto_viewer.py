@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 import numpy as np
 import io
 from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
+import openpyxl
 
 # Titre de l'application
 st.title("Finance Viewer")
@@ -48,43 +51,97 @@ tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
 
 
 # Fonction pour créer un Excel
-def create_excel(data, sheet_name="Data", ticker_info=None):
+def create_excel(data, ticker_symbol):
     output = io.BytesIO()
-    writer = pd.ExcelWriter(output, engine='openpyxl')
 
-    # Formater les données pour l'export
+    # Préparer les données
     export_data = data.copy()
 
     # Calculer la variation
     export_data['Variation (%)'] = export_data['Close'].pct_change() * 100
 
-    # Réorganiser les colonnes comme dans l'image
-    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']]
+    # Créer un classeur Excel avec openpyxl
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Data"
 
-    # Renommer les colonnes
-    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Volume', 'Variation (%)']
+    # Ajouter les en-têtes de colonnes
+    headers = ["Price", "High", "Low", "Open", "Volume", "Variation (%)"]
 
-    # Formater l'index comme dates au format YYYY-MM-DD
-    export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
-    export_data.index.name = 'Date'
+    # Ajouter une ligne pour le numéro
+    for col in range(1, 8):
+        ws.cell(row=1, column=col).value = get_column_letter(col)
+        ws.cell(row=1, column=col).font = Font(bold=True)
+        ws.cell(row=1, column=col).fill = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
+        ws.cell(row=1, column=col).font = Font(color="FFFFFF", bold=True)
+        ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
 
-    # Si ticker_info est fourni, ajouter une seconde ligne avec le symbole
-    if ticker_info:
-        # Créer une ligne de headers pour le symbole
-        symbol_headers = pd.DataFrame([[ticker_info] * 5 + ['']],
-                                      columns=export_data.columns,
-                                      index=['Ticker'])
+    # Première ligne: headers
+    for col, header in enumerate(headers, start=2):
+        ws.cell(row=2, column=col).value = header
+        ws.cell(row=2, column=col).font = Font(bold=True)
+        ws.cell(row=2, column=col).alignment = Alignment(horizontal="center")
 
-        # Ajouter cette ligne comme une seconde ligne d'en-tête dans Excel
-        symbol_headers.to_excel(writer, sheet_name=sheet_name, startrow=0)
-        export_data.to_excel(writer, sheet_name=sheet_name, startrow=2)
-    else:
-        # Export normal sans ligne supplémentaire
-        export_data.to_excel(writer, sheet_name=sheet_name, index=True)
+    # Ligne pour Ticker
+    ws.cell(row=2, column=1).value = "Ticker"
+    ws.cell(row=2, column=1).font = Font(bold=True)
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal="center")
 
-    writer.close()
-    processed_data = output.getvalue()
-    return processed_data
+    # Ligne pour les Ticker values
+    for col in range(2, 7):
+        ws.cell(row=3, column=col).value = ticker_symbol
+        ws.cell(row=3, column=col).alignment = Alignment(horizontal="center")
+
+    # Ligne pour Date
+    ws.cell(row=3, column=1).value = "Date"
+    ws.cell(row=3, column=1).font = Font(bold=True)
+
+    # Recréer les en-têtes dans la 3ème ligne
+    for col, header in enumerate(headers, start=2):
+        ws.cell(row=4, column=col).value = header
+        ws.cell(row=4, column=col).font = Font(bold=True)
+        ws.cell(row=4, column=col).alignment = Alignment(horizontal="center")
+
+    # Ajouter les données
+    start_row = 5
+    for i, (idx, row) in enumerate(export_data.iterrows(), start=start_row):
+        date_str = idx.strftime('%Y-%m-%d')
+        ws.cell(row=i, column=1).value = date_str
+
+        # Price (Close)
+        ws.cell(row=i, column=2).value = float(row["Close"])
+        ws.cell(row=i, column=2).number_format = "#,##0.00"
+
+        # High
+        ws.cell(row=i, column=3).value = float(row["High"])
+        ws.cell(row=i, column=3).number_format = "#,##0.00"
+
+        # Low
+        ws.cell(row=i, column=4).value = float(row["Low"])
+        ws.cell(row=i, column=4).number_format = "#,##0.00"
+
+        # Open
+        ws.cell(row=i, column=5).value = float(row["Open"])
+        ws.cell(row=i, column=5).number_format = "#,##0.00"
+
+        # Volume - format comme notation scientifique
+        vol = float(row["Volume"])
+        ws.cell(row=i, column=6).value = vol
+        ws.cell(row=i, column=6).number_format = "0.00E+00"
+
+        # Variation
+        variation = row["Variation (%)"]
+        if not pd.isna(variation):
+            ws.cell(row=i, column=7).value = variation / 100  # Excel affiche en pourcentage avec le format
+            ws.cell(row=i, column=7).number_format = "0.000000000"
+
+    # Ajuster la largeur des colonnes
+    for col in range(1, 8):
+        ws.column_dimensions[get_column_letter(col)].width = 15
+
+    # Enregistrer le fichier Excel
+    wb.save(output)
+    return output.getvalue()
 
 
 # Fonction pour afficher les données pour un type d'actif
@@ -188,8 +245,8 @@ def display_asset_data(assets, tab_key):
             # Affichage du tableau avec filtres
             st.dataframe(display_data)
 
-            # Créer un excel avec les données formatées comme dans l'image
-            excel_data = create_excel(data, f"{selected_asset}", ticker_symbol)
+            # Créer un excel avec le format spécifique
+            excel_data = create_excel(data, ticker_symbol)
 
             st.download_button(
                 label="Télécharger les données (XLSX)",
