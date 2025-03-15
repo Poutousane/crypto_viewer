@@ -34,7 +34,7 @@ stock_assets = {
     "JPMorgan Chase": "JPM"
 }
 
-# Division des autres actifs en deux catégories : Devises et Ressources
+# Division des autres actifs en catégories
 currency_assets = {
     "EUR/USD": "EURUSD=X",
     "GBP/USD": "GBPUSD=X",
@@ -53,13 +53,24 @@ resource_assets = {
     "Gaz naturel": "NG=F",
     "Cuivre": "HG=F",
     "Blé": "ZW=F",
-    "Maïs": "ZC=F",
+    "Maïs": "ZC=F"
+}
+
+# Nouvel onglet pour les indices
+index_assets = {
     "S&P 500": "^GSPC",
-    "NASDAQ": "^IXIC"
+    "NASDAQ Composite": "^IXIC",
+    "Dow Jones": "^DJI",
+    "Russell 2000": "^RUT",
+    "CAC 40": "^FCHI",
+    "DAX": "^GDAXI",
+    "FTSE 100": "^FTSE",
+    "Nikkei 225": "^N225"
 }
 
 # Création des onglets principaux pour types d'actifs
-tab1, tab2, tab3, tab4 = st.tabs(["Crypto", "Actions", "Devises", "Ressources"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Crypto", "Actions", "Devises", "Ressources", "Indices"])
+
 
 # Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
 def create_excel(data, sheet_name="Data"):
@@ -115,6 +126,7 @@ def create_excel(data, sheet_name="Data"):
     workbook.save(output)
     processed_data = output.getvalue()
     return processed_data
+
 
 # Fonction pour afficher les données pour un type d'actif
 def display_asset_data(assets, tab_key):
@@ -230,6 +242,60 @@ def display_asset_data(assets, tab_key):
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     key=f"download_{tab_key}"
                 )
+
+                # Afficher les composantes pour les indices principaux
+                if tab_key == "index" and selected_asset in ["S&P 500", "NASDAQ Composite", "Dow Jones"]:
+                    st.subheader(f"Composantes principales du {selected_asset}")
+
+                    # Données fictives pour la démonstration - à remplacer par des données réelles
+                    if selected_asset == "S&P 500":
+                        components = {
+                            "Apple (AAPL)": "5.83%",
+                            "Microsoft (MSFT)": "5.37%",
+                            "Amazon (AMZN)": "3.10%",
+                            "NVIDIA (NVDA)": "2.85%",
+                            "Alphabet Class A (GOOGL)": "1.78%",
+                            "Alphabet Class C (GOOG)": "1.57%",
+                            "Meta (META)": "1.57%",
+                            "Tesla (TSLA)": "1.43%",
+                            "Berkshire Hathaway (BRK.B)": "1.40%",
+                            "UnitedHealth (UNH)": "1.26%"
+                        }
+                    elif selected_asset == "NASDAQ Composite":
+                        components = {
+                            "Apple (AAPL)": "10.91%",
+                            "Microsoft (MSFT)": "9.94%",
+                            "Amazon (AMZN)": "5.75%",
+                            "NVIDIA (NVDA)": "5.28%",
+                            "Alphabet Class A (GOOGL)": "3.29%",
+                            "Alphabet Class C (GOOG)": "2.91%",
+                            "Meta (META)": "2.90%",
+                            "Tesla (TSLA)": "2.66%",
+                            "Broadcom (AVGO)": "1.84%",
+                            "Costco (COST)": "1.26%"
+                        }
+                    elif selected_asset == "Dow Jones":
+                        components = {
+                            "UnitedHealth (UNH)": "8.27%",
+                            "Goldman Sachs (GS)": "6.75%",
+                            "Home Depot (HD)": "6.10%",
+                            "Microsoft (MSFT)": "5.73%",
+                            "McDonald's (MCD)": "5.00%",
+                            "Amgen (AMGN)": "4.92%",
+                            "Visa (V)": "4.59%",
+                            "Caterpillar (CAT)": "4.12%",
+                            "Salesforce (CRM)": "3.90%",
+                            "Boeing (BA)": "3.51%"
+                        }
+
+                    # Afficher un tableau des composantes
+                    comp_df = pd.DataFrame(
+                        {"Pondération": list(components.values())},
+                        index=list(components.keys())
+                    )
+                    st.table(comp_df)
+
+                    st.caption("Note: Les pondérations sont approximatives et peuvent varier au fil du temps.")
             else:
                 st.error(f"Aucune donnée n'a été récupérée pour {selected_asset}.")
 
@@ -237,6 +303,7 @@ def display_asset_data(assets, tab_key):
         st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
         import traceback
         st.error(f"Traceback détaillé: {traceback.format_exc()}")
+
 
 # Affichage des données selon l'onglet sélectionné
 with tab1:
@@ -250,3 +317,6 @@ with tab3:
 
 with tab4:
     display_asset_data(resource_assets, "resource")
+
+with tab5:
+    display_asset_data(index_assets, "index")
