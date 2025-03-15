@@ -177,17 +177,6 @@ for country, indices in index_categories.items():
         index_assets[name] = ticker
 
 
-# Fonction pour calculer la volatilité
-def calculate_volatility(prices, window=20):
-    # Calculer les rendements en pourcentage
-    returns = prices.pct_change().dropna()
-
-    # Calculer la volatilité (écart-type des rendements) sur la fenêtre spécifiée
-    volatility = returns.rolling(window=window).std() * np.sqrt(252) * 100  # Annualisée en pourcentage
-
-    return volatility.iloc[-1] if not volatility.empty else None
-
-
 # Fonction pour créer un Excel avec la colonne variation formatée en pourcentage
 def create_excel(data, sheet_name="Data"):
     output = io.BytesIO()
@@ -279,13 +268,10 @@ def display_standard_asset_data(assets, tab_key):
                 variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
                 latest_volume_value = float(data['Volume'].iloc[-1])
 
-                # Calculer la volatilité
-                volatility = calculate_volatility(data['Close'])
-
                 # Affichage des indicateurs clés
                 st.subheader("Indicateurs clés")
 
-                metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
                 with metrics_col1:
                     formatted_close = f"${latest_close_value:.2f}"
@@ -306,12 +292,6 @@ def display_standard_asset_data(assets, tab_key):
                     else:
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
-
-                with metrics_col4:
-                    if volatility is not None:
-                        st.metric("Volatilité (annualisée)", f"{volatility:.2f}%")
-                    else:
-                        st.metric("Volatilité (annualisée)", "N/A")
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -431,13 +411,10 @@ def display_stock_data():
                 variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
                 latest_volume_value = float(data['Volume'].iloc[-1])
 
-                # Calculer la volatilité
-                volatility = calculate_volatility(data['Close'])
-
                 # Affichage des indicateurs clés
                 st.subheader("Indicateurs clés")
 
-                metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
                 with metrics_col1:
                     formatted_close = f"${latest_close_value:.2f}"
@@ -458,12 +435,6 @@ def display_stock_data():
                     else:
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
-
-                with metrics_col4:
-                    if volatility is not None:
-                        st.metric("Volatilité (annualisée)", f"{volatility:.2f}%")
-                    else:
-                        st.metric("Volatilité (annualisée)", "N/A")
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -582,13 +553,10 @@ def display_indices_data():
                 variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
                 latest_volume_value = float(data['Volume'].iloc[-1])
 
-                # Calculer la volatilité
-                volatility = calculate_volatility(data['Close'])
-
                 # Affichage des indicateurs clés
                 st.subheader("Indicateurs clés")
 
-                metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
+                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
 
                 with metrics_col1:
                     formatted_close = f"{latest_close_value:.2f} pts"
@@ -609,12 +577,6 @@ def display_indices_data():
                     else:
                         vol_str = f"{latest_volume_value:.2f}"
                     st.metric("Volume (dernier jour)", vol_str)
-
-                with metrics_col4:
-                    if volatility is not None:
-                        st.metric("Volatilité (annualisée)", f"{volatility:.2f}%")
-                    else:
-                        st.metric("Volatilité (annualisée)", "N/A")
 
                 # Tableau des données
                 st.subheader("Données historiques")
@@ -697,4 +659,3 @@ with tab4:
 
 with tab5:
     display_indices_data()  # Fonction spéciale pour les indices avec filtrage par pays
-
