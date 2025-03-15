@@ -1,55 +1,155 @@
-import streamlit as st
 import pandas as pd
-import yfinance as yf
-from datetime import datetime, timedelta
 import numpy as np
-import io
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 import plotly.graph_objects as go
+import dash
+from dash import html, dcc, callback, Input, Output, State
+import os
+import requests
+import json
+from datetime import datetime, timedelta
+import subprocess
+import sys
 
-# Titre de l'application
-st.title("Finance Viewer")
+# Définir les chemins des fichiers
+ROOT_DIR = "/mount"
+DATA_DIR = os.path.join(ROOT_DIR, "data")
+ASSETS_FILE = os.path.join(DATA_DIR, "assets_list.json")
+CONFIG_FILE = os.path.join(ROOT_DIR, "config.json")
 
-# Listes des actifs disponibles
-crypto_assets = {
-    "Bitcoin": "BTC-USD",
-    "Ethereum": "ETH-USD",
-    "Binance Coin": "BNB-USD",
-    "Solana": "SOL-USD",
-    "XRP": "XRP-USD",
-    "Cardano": "ADA-USD",
-    "Dogecoin": "DOGE-USD",
-    "Polkadot": "DOT-USD"
+# Créer les répertoires s'ils n'existent pas
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Configuration par défaut
+DEFAULT_CONFIG = {
+    "api_key": "YOUR_API_KEY",
+    "default_timeframe": "day",
+    "display_mode": "dark",
+    "auto_refresh": True,
+    "refresh_interval": 3600  # en secondes
 }
 
-stock_assets = {
-    "Apple": "AAPL",
-    "Microsoft": "MSFT",
-    "Google": "GOOGL",
-    "Amazon": "AMZN",
-    "Tesla": "TSLA",
-    "Meta": "META",
-    "NVIDIA": "NVDA",
-    "JPMorgan Chase": "JPM"
+# Couleurs pour les différents thèmes
+COLORS = {
+    "dark": {
+        "background": "#1e1e1e",
+        "text": "#ffffff",
+        "accent": "#61dafb",
+        "secondary": "#282c34",
+        "positive": "#4caf50",
+        "negative": "#f44336",
+        "neutral": "#9e9e9e"
+    },
+    "light": {
+        "background": "#f8f9fa",
+        "text": "#212529",
+        "accent": "#007bff",
+        "secondary": "#e9ecef",
+        "positive": "#28a745",
+        "negative": "#dc3545",
+        "neutral": "#6c757d"
+    }
 }
 
-other_assets = {
-    "Or": "GC=F",
-    "Argent": "SI=F",
-    "Pétrole brut": "CL=F",
-    "Gaz naturel": "NG=F",
-    "EUR/USD": "EURUSD=X",
-    "GBP/USD": "GBPUSD=X",
-    "S&P 500": "^GSPC",
-    "NASDAQ": "^IXIC"
-}
 
-# Création des onglets principaux pour types d'actifs
-tab1, tab2, tab3 = st.tabs(["Crypto", "Actions", "Autres"])
+# Chargement de la configuration
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    else:
+        save_config(DEFAULT_CONFIG)
+        return DEFAULT_CONFIG
 
 
-# Fonction pour créer un graphique en bougies simplifié (style image)
+def save_config(config):
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=4)
+
+
+def load_asset_list():
+    if os.path.exists(ASSETS_FILE):
+        with open(ASSETS_FILE, 'r') as f:
+            return json.load(f)
+    else:
+        # Liste minimale par défaut
+        default_assets = [
+            {"symbol": "BTC/USDT", "name": "Bitcoin", "category": "cryptocurrency"},
+            {"symbol": "ETH/USDT", "name": "Ethereum", "category": "cryptocurrency"},
+            {"symbol": "ADA/USDT", "name": "Cardano", "category": "cryptocurrency"},
+            {"symbol": "DOGE/USDT", "name": "Dogecoin", "category": "cryptocurrency"}
+        ]
+        with open(ASSETS_FILE, 'w') as f:
+            json.dump(default_assets, f, indent=4)
+        return default_assets
+
+
+def fetch_data(symbol, timeframe="day"):
+    """
+    Récupère les données historiques pour un actif donné.
+    """
+    # Simulation de données pour la démonstration
+    # Dans une version réelle, remplacer par un appel API
+
+    today = datetime.now()
+
+    # Déterminer les paramètres en fonction du timeframe
+    if timeframe == "day":
+        days_back = 30
+        interval = '1d'
+    elif timeframe == "week":
+        days_back = 90
+        interval = '1w'
+    elif timeframe == "month":
+        days_back = 365
+        interval = '1M'
+    else:
+        days_back = 30
+        interval = '1d'
+
+    # Créer un index de dates
+    date_range = pd.date_range(end=today, periods=days_back)
+
+    # Simuler des données de prix avec une tendance
+    base_price = 100 + np.random.random() * 900  # Prix de base entre 100 et 1000
+
+    if "/USDT" in symbol:
+        volatility = 0.05  # Plus volatil pour les crypto
+    else:
+        volatility = 0.02  # Moins volatil pour les actions
+
+    # Simuler une tendance générale
+    trend = np.linspace(0, np.random.choice([-1, 1]) * 0.5, days_back)
+
+    # Créer les prix
+    closes = []
+    last_close = base_price
+
+    for i in range(days_back):
+        change = np.random.normal(0, volatility) + trend[i] / days_back
+        last_close = last_close * (1 + change)
+        closes.append(max(last_close, 1))  # Éviter les prix négatifs
+
+    closes = np.array(closes)
+
+    # Créer les autres colonnes OHLC
+    opens = closes * (1 + np.random.normal(0, volatility / 2, days_back))
+    highs = np.maximum(opens, closes) * (1 + abs(np.random.normal(0, volatility, days_back)))
+    lows = np.minimum(opens, closes) * (1 - abs(np.random.normal(0, volatility, days_back)))
+    volumes = np.random.normal(base_price * 1000, base_price * 500, days_back)
+    volumes = np.abs(volumes)
+
+    # Créer le DataFrame
+    data = pd.DataFrame({
+        'Open': opens,
+        'High': highs,
+        'Low': lows,
+        'Close': closes,
+        'Volume': volumes
+    }, index=date_range)
+
+    return data
+
+
 def create_simple_candlestick_chart(data, asset_name):
     # Vérifier si les données sont valides
     if data.empty or len(data) <= 1:
@@ -87,7 +187,18 @@ def create_simple_candlestick_chart(data, asset_name):
         close=valid_data['Close'],
         increasing_line_color='green',
         decreasing_line_color='red',
-        name='Prix'
+        name='Prix',
+        hoverinfo='text',
+        # Utiliser 'text' au lieu de 'hovertemplate'
+        text=[
+            f"Date: {d.strftime('%Y-%m-%d')}<br>" +
+            f"Ouverture: {o:.2f}<br>" +
+            f"Haut: {h:.2f}<br>" +
+            f"Bas: {l:.2f}<br>" +
+            f"Clôture: {c:.2f}"
+            for d, o, h, l, c in
+            zip(valid_data.index, valid_data['Open'], valid_data['High'], valid_data['Low'], valid_data['Close'])
+        ]
     ))
 
     # Configuration du graphique pour qu'il ressemble à une image statique
@@ -96,9 +207,7 @@ def create_simple_candlestick_chart(data, asset_name):
         height=500,
         template="plotly_dark",
         margin=dict(l=40, r=40, t=60, b=40),
-        # Désactiver toutes les interactions sauf le survol
         hovermode='closest',
-        # Désactiver la légende
         showlegend=False
     )
 
@@ -107,7 +216,6 @@ def create_simple_candlestick_chart(data, asset_name):
         showgrid=True,
         gridcolor='rgba(80, 80, 80, 0.2)',
         title_text='',
-        # Désactiver les zooms et panoramiques
         fixedrange=True
     )
 
@@ -115,15 +223,12 @@ def create_simple_candlestick_chart(data, asset_name):
         showgrid=True,
         gridcolor='rgba(80, 80, 80, 0.2)',
         title_text='Prix',
-        # Désactiver les zooms et panoramiques
         fixedrange=True
     )
 
     # Configuration avancée pour désactiver les barres d'outils et les interactions
     fig.update_layout(
-        # Désactiver les interactions
         dragmode=False,
-        # Désactiver les options de la barre d'outils
         modebar=dict(
             remove=[
                 'zoom', 'pan', 'zoomIn', 'zoomOut', 'autoScale', 'resetScale',
@@ -150,220 +255,297 @@ def create_simple_candlestick_chart(data, asset_name):
 
     # Configurer l'infobulle pour qu'elle soit simple mais informative
     fig.update_traces(
-        hoverinfo='all',
         hoverlabel=dict(
             bgcolor="rgba(60, 60, 60, 0.8)",
             font_size=12,
             font_family="Arial"
-        ),
-        hovertemplate=(
-                "<b>Date:</b> %{x|%Y-%m-%d}<br>" +
-                "<b>Ouverture:</b> %{open:.2f}<br>" +
-                "<b>Haut:</b> %{high:.2f}<br>" +
-                "<b>Bas:</b> %{low:.2f}<br>" +
-                "<b>Clôture:</b> %{close:.2f}<extra></extra>"
         )
     )
 
     return fig
 
 
-# Fonction pour créer un Excel
-def create_excel(data, sheet_name="Data"):
-    output = io.BytesIO()
+def create_indicator(title, value, change_value=None, is_percentage=False, prefix="", suffix=""):
+    """
+    Crée un élément d'indicateur pour afficher une valeur avec éventuellement un changement.
+    """
+    value_str = f"{prefix}{value:,.2f}{suffix}"
+    color_class = ""
+    change_element = ""
 
-    # Formater les données pour l'export
-    export_data = data.copy()
-
-    # Calculer la variation quotidienne
-    export_data['Variation (%)'] = export_data['Close'].pct_change() * 100
-
-    # Convertir les indices en dates au format YYYY-MM-DD
-    export_data.index = [d.strftime('%Y-%m-%d') for d in export_data.index]
-    export_data.index.name = 'Date'
-
-    # Réorganiser les colonnes
-    export_data = export_data[['Close', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']]
-
-    # Renommer les colonnes
-    export_data.columns = ['Price', 'High', 'Low', 'Open', 'Variation (%)', 'Volume']
-
-    # Créer et configurer le fichier Excel
-    workbook = Workbook()
-    ws = workbook.active
-    ws.title = sheet_name
-
-    # Ajouter la ligne d'en-tête
-    headers = ['Date'] + list(export_data.columns)
-    for col_idx, header in enumerate(headers, start=1):
-        ws.cell(row=1, column=col_idx, value=header)
-
-    # Ajouter les données
-    for row_idx, (date_idx, row_data) in enumerate(export_data.iterrows(), start=2):
-        # Ajouter la date
-        ws.cell(row=row_idx, column=1, value=date_idx)
-
-        # Ajouter les autres colonnes
-        for col_idx, value in enumerate(row_data, start=2):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-
-            # Pour la colonne Variation (%), appliquer le format pourcentage
-            if col_idx == 6:  # 6 est l'index pour Variation (%)
-                # Convertir la valeur en décimal pour le format pourcentage Excel
-                if pd.notna(value):
-                    cell.value = value / 100  # Convertir en décimal pour Excel
-                    cell.number_format = '0.00%'  # Format pourcentage avec 2 décimales
-
-    # Ajuster la largeur des colonnes
-    for col in range(1, len(headers) + 1):
-        column_letter = get_column_letter(col)
-        ws.column_dimensions[column_letter].width = 15
-
-    workbook.save(output)
-    processed_data = output.getvalue()
-    return processed_data
-
-
-# Fonction pour afficher les données pour un type d'actif
-def display_asset_data(assets, tab_key):
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        selected_asset = st.selectbox("Choisissez un actif", list(assets.keys()), key=f"select_{tab_key}")
-
-    with col2:
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=365)
-        start_date_input = st.date_input("Date de début", value=start_date, key=f"start_{tab_key}")
-
-    with col3:
-        end_date_input = st.date_input("Date de fin", value=end_date, key=f"end_{tab_key}")
-
-    # Récupération des données
-    ticker_symbol = assets[selected_asset]
-    try:
-        data = yf.download(ticker_symbol, start=start_date_input, end=end_date_input, interval="1d")
-
-        if data.empty:
-            st.error(f"Aucune donnée disponible pour {selected_asset} dans la période sélectionnée.")
+    if change_value is not None:
+        if is_percentage:
+            change_str = f"{change_value:+.2f}%"
         else:
-            # S'assurer que les données ne sont pas vides
-            if not data.empty and len(data) > 0:
-                # Extraction des valeurs pour les indicateurs clés
-                latest_close_value = float(data['Close'].iloc[-1])
-                first_close_value = float(data['Close'].iloc[0])
-                variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
-                latest_volume_value = float(data['Volume'].iloc[-1])
+            change_str = f"{prefix}{change_value:+,.2f}{suffix}"
 
-                # Affichage des indicateurs clés
-                st.subheader("Indicateurs clés")
-                metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+        if change_value > 0:
+            color_class = "positive"
+            change_element = f"<span class='change {color_class}'>▲ {change_str}</span>"
+        elif change_value < 0:
+            color_class = "negative"
+            change_element = f"<span class='change {color_class}'>▼ {change_str}</span>"
+        else:
+            color_class = "neutral"
+            change_element = f"<span class='change {color_class}'>{change_str}</span>"
 
-                with metrics_col1:
-                    formatted_close = f"${latest_close_value:.2f}"
-                    st.metric("Prix de clôture", formatted_close)
+    return html.Div(
+        className=f"indicator",
+        children=[
+            html.Div(title, className="indicator-title"),
+            html.Div([
+                html.Span(value_str, className="indicator-value"),
+                html.Div([html.Span(change_element)], dangerously_allow_html=True)
+            ])
+        ]
+    )
 
-                with metrics_col2:
-                    formatted_variation = f"{variation_value:.2f}%"
-                    formatted_delta = f"{variation_value:.2f}%"
-                    st.metric("Variation", formatted_variation, delta=formatted_delta)
 
-                with metrics_col3:
-                    if latest_volume_value >= 1e9:
-                        vol_str = f"{latest_volume_value / 1e9:.2f} G"
-                    elif latest_volume_value >= 1e6:
-                        vol_str = f"{latest_volume_value / 1e6:.2f} M"
-                    elif latest_volume_value >= 1e3:
-                        vol_str = f"{latest_volume_value / 1e3:.2f} k"
-                    else:
-                        vol_str = f"{latest_volume_value:.2f}"
-                    st.metric("Volume (dernier jour)", vol_str)
-
-                # Affichage du graphique simplifié
-                st.subheader("Graphique")
-
-                # Créer le graphique en bougies simplifié (style image)
-                simple_chart = create_simple_candlestick_chart(data, selected_asset)
-
-                # Afficher le graphique
-                st.plotly_chart(simple_chart, use_container_width=True, config={
-                    'displayModeBar': False,  # Masquer la barre de mode
-                    'staticPlot': False,  # Désactiver toutes les interactions sauf le survol
-                    'scrollZoom': False  # Désactiver le zoom par défilement
-                })
-
-                # Tableau des données
-                st.subheader("Données historiques")
-
-                # Calculer la variation quotidienne
-                data['Daily_Change'] = data['Close'].pct_change() * 100
-
-                # Créer un DataFrame pour l'affichage avec l'index recréé sans l'heure
-                display_data = pd.DataFrame(index=[d.date() for d in data.index])
-
-                # Convertir les valeurs numpy en valeurs Python natives
-                open_values = [float(x) for x in data['Open'].to_numpy()]
-                high_values = [float(x) for x in data['High'].to_numpy()]
-                low_values = [float(x) for x in data['Low'].to_numpy()]
-                close_values = [float(x) for x in data['Close'].to_numpy()]
-
-                # Formater les prix
-                display_data['Open'] = [f"${x:.2f}" for x in open_values]
-                display_data['High'] = [f"${x:.2f}" for x in high_values]
-                display_data['Low'] = [f"${x:.2f}" for x in low_values]
-                display_data['Close'] = [f"${x:.2f}" for x in close_values]
-
-                # Formater la variation avec gestion des NaN
-                daily_changes = []
-                for x in data['Daily_Change'].to_numpy():
-                    if pd.isna(x):
-                        daily_changes.append("N/A")
-                    else:
-                        daily_changes.append(f"{float(x):.2f}%")
-                display_data['Variation (%)'] = daily_changes
-
-                # Formater le volume
-                volumes = []
-                for vol in data['Volume'].to_numpy():
-                    vol = float(vol)
-                    if vol >= 1e9:
-                        volumes.append(f"{vol / 1e9:.2f} G")
-                    elif vol >= 1e6:
-                        volumes.append(f"{vol / 1e6:.2f} M")
-                    elif vol >= 1e3:
-                        volumes.append(f"{vol / 1e3:.2f} k")
-                    else:
-                        volumes.append(f"{vol:.2f}")
-                display_data['Volume'] = volumes
-
-                # Affichage du tableau avec filtres
-                st.dataframe(display_data)
-
-                # Créer un excel avec les colonnes inversées et le format pourcentage pour la variation
-                excel_data = create_excel(data, selected_asset)
-
-                st.download_button(
-                    label="Télécharger les données (XLSX)",
-                    data=excel_data,
-                    file_name=f'{selected_asset}_{start_date_input}_{end_date_input}.xlsx',
-                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    key=f"download_{tab_key}"
+def display_asset_data(data, selected_asset):
+    """
+    Crée l'affichage complet pour un actif sélectionné.
+    """
+    # En cas de données vides ou insuffisantes
+    if data.empty or len(data) <= 1:
+        return html.Div(
+            className="asset-container",
+            children=[
+                html.Div(
+                    className="error-message",
+                    children=["Données insuffisantes pour cet actif."]
                 )
-            else:
-                st.error(f"Aucune donnée n'a été récupérée pour {selected_asset}.")
+            ]
+        )
 
+    # Extraction des valeurs pour les indicateurs clés
+    latest_close_value = float(data['Close'].iloc[-1])
+    first_close_value = float(data['Close'].iloc[0])
+    variation_value = ((latest_close_value - first_close_value) / first_close_value) * 100
+    latest_volume_value = float(data['Volume'].iloc[-1])
+
+    # Création des indicateurs
+    indicators_row = html.Div(
+        className="indicators-row",
+        children=[
+            create_indicator("Dernier Prix", latest_close_value, prefix="$"),
+            create_indicator("Variation", variation_value, is_percentage=True),
+            create_indicator("Volume", latest_volume_value, prefix="$")
+        ]
+    )
+
+    # Création du graphique
+    simple_chart = create_simple_candlestick_chart(data, selected_asset)
+
+    # Combinaison des éléments dans un conteneur
+    return html.Div(
+        className="asset-container",
+        children=[
+            html.H2(selected_asset, className="asset-title"),
+            indicators_row,
+            dcc.Graph(
+                figure=simple_chart,
+                config={'displayModeBar': False, 'staticPlot': True},
+                className="asset-chart"
+            )
+        ]
+    )
+
+
+def create_layout():
+    """
+    Crée la mise en page de l'application.
+    """
+    # Chargement des actifs et de la configuration
+    assets_list = load_asset_list()
+    config = load_config()
+
+    # Boutons de sélection des actifs
+    asset_buttons = []
+
+    # Groupés par catégorie
+    categories = {}
+    for asset in assets_list:
+        category = asset.get("category", "other")
+        if category not in categories:
+            categories[category] = []
+        categories[category].append(asset)
+
+    # Création des boutons regroupés par catégorie
+    for category, assets in categories.items():
+        category_div = html.Div(
+            className="asset-category",
+            children=[
+                html.H3(category.capitalize(), className="category-title"),
+                html.Div(
+                    className="asset-buttons",
+                    children=[
+                        html.Button(
+                            asset["name"],
+                            id={"type": "asset-button", "index": asset["symbol"]},
+                            className="asset-button",
+                            n_clicks=0
+                        ) for asset in assets
+                    ]
+                )
+            ]
+        )
+        asset_buttons.append(category_div)
+
+    # Sélection d'intervalle de temps
+    timeframe_selector = html.Div(
+        className="timeframe-selector",
+        children=[
+            html.Label("Intervalle de Temps", className="selector-label"),
+            dcc.Dropdown(
+                id="timeframe-dropdown",
+                options=[
+                    {'label': 'Journalier', 'value': 'day'},
+                    {'label': 'Hebdomadaire', 'value': 'week'},
+                    {'label': 'Mensuel', 'value': 'month'}
+                ],
+                value=config["default_timeframe"],
+                clearable=False,
+                className="timeframe-dropdown"
+            )
+        ]
+    )
+
+    # Zone principale d'affichage
+    display_area = html.Div(
+        id="display-area",
+        className="display-area",
+        children=[
+            html.Div(
+                className="welcome-message",
+                children=[
+                    html.H2("Bienvenue sur Crypto Viewer"),
+                    html.P("Sélectionnez un actif dans la liste de gauche pour afficher ses informations.")
+                ]
+            )
+        ]
+    )
+
+    # Indicateur de mise à jour
+    update_info = html.Div(
+        id="update-info",
+        className="update-info",
+        children=f"Dernière mise à jour: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+
+    # Bouton de rechargement
+    reload_button = html.Button(
+        "⟳ Recharger",
+        id="reload-button",
+        className="reload-button",
+        n_clicks=0
+    )
+
+    # Options footer
+    footer = html.Div(
+        className="footer",
+        children=[
+            update_info,
+            reload_button
+        ]
+    )
+
+    # Assemblage de la mise en page
+    layout = html.Div(
+        className=f"app-container {config['display_mode']}",
+        children=[
+            html.Div(
+                className="sidebar",
+                children=[
+                    html.H1("Crypto Viewer", className="app-title"),
+                    html.Div(
+                        className="sidebar-content",
+                        children=asset_buttons
+                    ),
+                    timeframe_selector
+                ]
+            ),
+            html.Div(
+                className="main-content",
+                children=[
+                    display_area,
+                    footer
+                ]
+            ),
+            # Store pour stocker l'actif actuel
+            dcc.Store(id="current-asset", data=None),
+            # Interval pour le rafraîchissement automatique
+            dcc.Interval(
+                id="refresh-interval",
+                interval=config["refresh_interval"] * 1000,  # en millisecondes
+                disabled=not config["auto_refresh"]
+            )
+        ]
+    )
+
+    return layout
+
+
+# Création de l'application Dash
+app = dash.Dash(__name__, suppress_callback_exceptions=True)
+
+# Définition du titre de l'application
+app.title = "Crypto Viewer"
+
+# Configuration du layout initial
+app.layout = create_layout()
+
+
+# Callbacks pour l'interactivité
+@app.callback(
+    [Output("display-area", "children"), Output("current-asset", "data")],
+    [Input({"type": "asset-button", "index": dash.dependencies.ALL}, "n_clicks"),
+     Input("reload-button", "n_clicks"),
+     Input("refresh-interval", "n_ticks"),
+     Input("timeframe-dropdown", "value")],
+    [State("current-asset", "data")]
+)
+def update_display(asset_clicks, reload_clicks, refresh_ticks, timeframe, current_asset):
+    ctx = dash.callback_context
+
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    selected_asset = current_asset
+
+    # Vérifier si c'est un bouton d'actif qui a été cliqué
+    if "asset-button" in trigger_id:
+        # Obtenir l'index de l'actif à partir du déclencheur
+        button_dict = json.loads(trigger_id)
+        if button_dict.get("type") == "asset-button":
+            selected_asset = button_dict.get("index")
+
+    # Si aucun actif n'est sélectionné, ne rien faire
+    if not selected_asset:
+        return dash.no_update, dash.no_update
+
+    # Récupérer les données pour l'actif
+    data = fetch_data(selected_asset, timeframe)
+
+    # Afficher les données de l'actif
+    return display_asset_data(data, selected_asset), selected_asset
+
+
+@app.callback(
+    Output("update-info", "children"),
+    [Input("reload-button", "n_clicks"),
+     Input("refresh-interval", "n_ticks")]
+)
+def update_refresh_time(reload_clicks, refresh_ticks):
+    return f"Dernière mise à jour: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+
+# Lancement de l'application
+if __name__ == "__main__":
+    try:
+        # Lancer le serveur
+        app.run_server(debug=True, host='0.0.0.0', port=8050)
     except Exception as e:
-        st.error(f"Une erreur s'est produite lors de la récupération des données : {e}")
-        import traceback
-        st.error(f"Traceback détaillé: {traceback.format_exc()}")
-
-
-# Affichage des données selon l'onglet sélectionné
-with tab1:
-    display_asset_data(crypto_assets, "crypto")
-
-with tab2:
-    display_asset_data(stock_assets, "stock")
-
-with tab3:
-    display_asset_data(other_assets, "other")
+        print(f"Une erreur s'est produite lors du lancement: {e}")
+        sys.exit(1)
